@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:i="http://www.w3.org/2001/XMLSchema-instance"
+    elementFormDefault="qualified"
+    attributeFormDefault="unqualified">
+
+  <!-- Base AxTableField type - abstract -->
+  <xs:complexType name="AxTableField" abstract="true">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" />
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="Adjustment" type="xs:string" />
+        <xs:element name="AliasFor" type="xs:string" />
+        <xs:element name="AllowEdit" type="xs:string" />
+        <xs:element name="AllowEditOnCreate" type="xs:string" />
+        <xs:element name="AosAuthorization" type="xs:string" />
+        <xs:element name="AssetClassification" type="xs:string" />
+        <xs:element name="ConfigurationKey" type="xs:string" />
+        <xs:element name="CorrectionFlagField" type="xs:string" />
+        <xs:element name="CountryRegionCodes" type="xs:string" />
+        <xs:element name="CountryRegionContextField" type="xs:string" />
+        <xs:element name="CurrencyCode" type="xs:string" />
+        <xs:element name="CurrencyCodeField" type="xs:string" />
+        <xs:element name="CurrencyCodeTable" type="xs:string" />
+        <xs:element name="CurrencyDate" type="xs:string" />
+        <xs:element name="CurrencyDateField" type="xs:string" />
+        <xs:element name="CurrencyDateTable" type="xs:string" />
+        <xs:element name="GeneralDataProtectionRegulation" type="xs:string" />
+        <xs:element name="EnumType" type="xs:string" />
+        <xs:element name="ExtendedDataType" type="xs:string" />
+        <xs:element name="FeatureClass" type="xs:string" />
+        <xs:element name="FieldUpdate" type="xs:string" />
+        <xs:element name="GroupPrompt" type="xs:string" />
+        <xs:element name="HelpText" type="xs:string" />
+        <xs:element name="IgnoreEDTRelation" type="xs:string" />
+        <xs:element name="IsManuallyUpdated" type="xs:string" />
+        <xs:element name="IsObsolete" type="xs:string" />
+        <xs:element name="IsSystemGenerated" type="xs:string" />
+        <xs:element name="Label" type="xs:string" />
+        <xs:element name="Mandatory" type="xs:string" />
+        <xs:element name="MinReadAccess" type="xs:string" />
+        <xs:element name="Modules" type="xs:string" />
+        <xs:element name="Null" type="xs:string" />
+        <xs:element name="RelatedTable" type="xs:string" />
+        <xs:element name="RelationContext" type="xs:string" />
+        <xs:element name="SaveContents" type="xs:string" />
+        <xs:element name="Scale" type="xs:string" />
+        <xs:element name="StringSize" type="xs:string" />
+        <xs:element name="SysSharingType" type="xs:string" />
+        <xs:element name="Tags" type="xs:string" />
+        <xs:element name="Visible" type="xs:string" />
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Concrete field types extending AxTableField -->
+  <xs:complexType name="AxTableFieldString">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldInt">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldInt64">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldGuid">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldDate">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldEnum">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldReal">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldTime">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldUtcDateTime">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableFieldContainer">
+    <xs:complexContent>
+      <xs:extension base="AxTableField"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableField element with polymorphic i:type -->
+  <xs:element name="AxTableField" type="AxTableField" />
+
+  <!-- AxTableRelationConstraint types -->
+  <xs:complexType name="AxTableRelationConstraint" abstract="true">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" />
+      <xs:element name="SourceEDT" type="xs:string" minOccurs="0" />
+      <xs:element name="Value" type="xs:string" minOccurs="0" />
+      <xs:element name="Field" type="xs:string" minOccurs="0" />
+      <xs:element name="RelatedField" type="xs:string" minOccurs="0" />
+      <xs:element name="ValueStr" type="xs:string" minOccurs="0" />
+    </xs:all>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableRelationConstraintField">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraint"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableRelationConstraintFixed">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraint"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableRelationConstraintRelatedFixed">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraint"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableRelationConstraintTable">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraint"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableRelationConstraintRelatedTable">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraint"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Element reference for polymorphic constraint types -->
+  <xs:element name="AxTableRelationConstraint" type="AxTableRelationConstraint" />
+
+  <!-- AxTableRelation types -->
+  <xs:complexType name="AxTableRelation">
+    <xs:all>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="Cardinality" type="xs:string" minOccurs="0"/>
+      <xs:element name="Constraints" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element ref="AxTableRelationConstraint" maxOccurs="unbounded" minOccurs="0"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="CreateNavigationPropertyMethods" type="xs:string" minOccurs="0"/>
+      <xs:element name="EDTRelation" type="xs:string" minOccurs="0"/>
+      <xs:element name="EntityRelationshipRole" type="xs:string" minOccurs="0"/>
+      <xs:element name="Index" type="xs:string" minOccurs="0"/>
+      <xs:element name="IsManuallyUpdated" type="xs:string" minOccurs="0"/>
+      <xs:element name="IsSystemGenerated" type="xs:string" minOccurs="0"/>
+      <xs:element name="NavigationPropertyMethodNameOverride" type="xs:string" minOccurs="0"/>
+      <xs:element name="OnDelete" type="xs:string" minOccurs="0"/>
+      <xs:element name="RelatedTable" type="xs:string" minOccurs="0"/>
+      <xs:element name="RelatedTableCardinality" type="xs:string" minOccurs="0"/>
+      <xs:element name="RelatedTableRole" type="xs:string" minOccurs="0"/>
+      <xs:element name="RelationshipType" type="xs:string" minOccurs="0"/>
+      <xs:element name="Role" type="xs:string" minOccurs="0"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0"/>
+      <xs:element name="UseDefaultRoleNames" type="xs:string" minOccurs="0"/>
+      <xs:element name="Validate" type="xs:string" minOccurs="0"/>
+      <!-- Nested AxTableRelation for recursive structure -->
+      <xs:element ref="AxTableRelation" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+
+  <xs:complexType name="AxTableRelationForeignKey">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelation"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:element name="AxTableRelation" type="AxTableRelation" />
+
+  <!-- Additional complex types for new elements -->
+  
+  <!-- AxTableDeleteAction type -->
+  <xs:complexType name="AxTableDeleteAction">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="0"/>
+      <xs:element name="DeleteAction" type="xs:string" minOccurs="0"/>
+      <xs:element name="Relation" type="xs:string" minOccurs="0"/>
+      <xs:element name="Table" type="xs:string" minOccurs="0"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- AxTableFieldGroup type -->
+  <xs:complexType name="AxTableFieldGroup">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="AutoPopulate" type="xs:string" minOccurs="0"/>
+      <xs:element name="IsManuallyUpdated" type="xs:string" minOccurs="0"/>
+      <xs:element name="IsSystemGenerated" type="xs:string" minOccurs="0"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0"/>
+      <xs:element name="Modules" type="xs:string" minOccurs="0"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0"/>
+      <xs:element name="Fields" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="AxTableFieldGroupField" maxOccurs="unbounded" minOccurs="0">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="DataField" type="xs:string"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxTableIndex type -->
+  <xs:complexType name="AxTableIndex">
+    <xs:all>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="AllowDuplicates" type="xs:string" minOccurs="0"/>
+      <xs:element name="AllowPageLocks" type="xs:string" minOccurs="0"/>
+      <xs:element name="AlternateKey" type="xs:string" minOccurs="0"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0"/>
+      <xs:element name="Enabled" type="xs:string" minOccurs="0"/>
+      <xs:element name="IndexType" type="xs:string" minOccurs="0"/>
+      <xs:element name="IsManuallyUpdated" type="xs:string" minOccurs="0"/>
+      <xs:element name="IsSystemGenerated" type="xs:string" minOccurs="0"/>
+      <xs:element name="ValidTimeStateKey" type="xs:string" minOccurs="0"/>
+      <xs:element name="ValidTimeStateMode" type="xs:string" minOccurs="0"/>
+      <xs:element name="Fields" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="AxTableIndexField" maxOccurs="unbounded" minOccurs="0">
+              <xs:complexType>
+                <xs:all>
+                  <xs:element name="DataField" type="xs:string"/>
+                  <xs:element name="IncludedColumn" type="xs:string" minOccurs="0"/>
+                  <xs:element name="Optional" type="xs:string" minOccurs="0"/>
+                </xs:all>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- AxTableMapping type -->
+  <xs:complexType name="AxTableMapping">
+    <xs:all>
+      <xs:element name="MappingTable" type="xs:string"/>
+      <xs:element name="Connections" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="AxTableMappingConnection" maxOccurs="unbounded" minOccurs="0">
+              <xs:complexType>
+                <xs:all>
+                  <xs:element name="MapField" type="xs:string" minOccurs="0"/>
+                  <xs:element name="MapFieldTo" type="xs:string" minOccurs="0"/>
+                  <xs:element name="Tags" type="xs:string" minOccurs="0"/>
+                </xs:all>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- AxTableFullTextIndex type -->
+  <xs:complexType name="AxTableFullTextIndex">
+    <xs:all>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0"/>
+      <xs:element name="Fields" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- State Machine types -->
+  <xs:complexType name="AxStateMachine">
+    <xs:all>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="DataField" type="xs:string" minOccurs="0"/>
+      <xs:element name="Description" type="xs:string" minOccurs="0"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0"/>
+      <xs:element name="States" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="AxStateMachineState" maxOccurs="unbounded" minOccurs="0">
+              <xs:complexType>
+                <xs:all>
+                  <xs:element name="Name" type="xs:string"/>
+                  <xs:element name="Description" type="xs:string" minOccurs="0"/>
+                  <xs:element name="EnumValue" type="xs:string" minOccurs="0"/>
+                  <xs:element name="Label" type="xs:string" minOccurs="0"/>
+                  <xs:element name="StateKind" type="xs:string" minOccurs="0"/>
+                  <xs:element name="Transitions" minOccurs="0">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="AxStateMachineStateTransition" maxOccurs="unbounded" minOccurs="0">
+                          <xs:complexType>
+                            <xs:all>
+                              <xs:element name="Name" type="xs:string"/>
+                              <xs:element name="Description" type="xs:string" minOccurs="0"/>
+                              <xs:element name="Label" type="xs:string" minOccurs="0"/>
+                              <xs:element name="TransitionToState" type="xs:string" minOccurs="0"/>
+                            </xs:all>
+                          </xs:complexType>
+                        </xs:element>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:all>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- AxTable complex type definition -->
+  <xs:complexType name="AxTableType">
+    <xs:sequence>
+      <!-- Name must come first in sequence -->
+      <xs:element name="Name" type="xs:string"/>
+      
+      <!-- Use choice for all properties to allow them to appear in any order -->
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="SourceCode" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Declaration" type="xs:string" minOccurs="0"/>
+              <xs:element name="UnparsableSource" type="xs:string" minOccurs="0"/>
+              <xs:element name="Methods" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="Method" maxOccurs="unbounded" minOccurs="0">
+                      <xs:complexType>
+                        <xs:all>
+                          <xs:element name="Name" type="xs:string"/>
+                          <xs:element name="Source" type="xs:string" minOccurs="0"/>
+                        </xs:all>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="CompilerMetadata" type="CompilerMetadataType" minOccurs="0"/>
+        <!-- Simple property elements -->
+        <xs:element name="Abstract" type="xs:string" minOccurs="0"/>
+        <xs:element name="AllowArchival" type="xs:string" minOccurs="0"/>
+        <xs:element name="AllowChangeTracking" type="xs:string" minOccurs="0"/>
+        <xs:element name="AllowOverride" type="xs:string" minOccurs="0"/>
+        <xs:element name="AllowRetention" type="xs:string" minOccurs="0"/>
+        <xs:element name="AllowRowVersionChangeTracking" type="xs:string" minOccurs="0"/>
+        <xs:element name="AosAuthorization" type="xs:string" minOccurs="0"/>
+        <xs:element name="CacheLookup" type="xs:string" minOccurs="0"/>
+        <xs:element name="ClusteredIndex" type="xs:string" minOccurs="0"/>
+        <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0"/>
+        <xs:element name="CountryRegionCodes" type="xs:string" minOccurs="0"/>
+        <xs:element name="CountryRegionContextField" type="xs:string" minOccurs="0"/>
+        <xs:element name="CreatedBy" type="xs:string" minOccurs="0"/>
+        <xs:element name="CreatedDateTime" type="xs:string" minOccurs="0"/>
+        <xs:element name="CreatedTransactionId" type="xs:string" minOccurs="0"/>
+        <xs:element name="CreateRecIdIndex" type="xs:string" minOccurs="0"/>
+        <xs:element name="DataSharingType" type="xs:string" minOccurs="0"/>
+        <xs:element name="DeveloperDocumentation" type="xs:string" minOccurs="0"/>
+        <xs:element name="DisableDatabaseLogging" type="xs:string" minOccurs="0"/>
+        <xs:element name="DisableLockEscalation" type="xs:string" minOccurs="0"/>
+        <xs:element name="Durability" type="xs:string" minOccurs="0"/>
+        <xs:element name="EntityRelationshipType" type="xs:string" minOccurs="0"/>
+        <xs:element name="Extends" type="xs:string" minOccurs="0"/>
+        <xs:element name="FormRef" type="xs:string" minOccurs="0"/>
+        <xs:element name="InstanceRelationType" type="xs:string" minOccurs="0"/>
+        <xs:element name="IsObsolete" type="xs:string" minOccurs="0"/>
+        <xs:element name="Label" type="xs:string" minOccurs="0"/>
+        <xs:element name="ListPageRef" type="xs:string" minOccurs="0"/>
+        <xs:element name="Methods" type="xs:string" minOccurs="0"/>
+        <xs:element name="ModifiedBy" type="xs:string" minOccurs="0"/>
+        <xs:element name="ModifiedDateTime" type="xs:string" minOccurs="0"/>
+        <xs:element name="ModifiedTransactionId" type="xs:string" minOccurs="0"/>
+        <xs:element name="Modules" type="xs:string" minOccurs="0"/>
+        <xs:element name="OccEnabled" type="xs:string" minOccurs="0"/>
+        <xs:element name="OperationalDomain" type="xs:string" minOccurs="0"/>
+        <xs:element name="PreviewPartRef" type="xs:string" minOccurs="0"/>
+        <xs:element name="PrimaryIndex" type="xs:string" minOccurs="0"/>
+        <xs:element name="ReplacementKey" type="xs:string" minOccurs="0"/>
+        <xs:element name="ReportRef" type="xs:string" minOccurs="0"/>
+        <xs:element name="SaveDataPerCompany" type="xs:string" minOccurs="0"/>
+        <xs:element name="SaveDataPerPartition" type="xs:string" minOccurs="0"/>
+        <xs:element name="SearchLinkRefName" type="xs:string" minOccurs="0"/>
+        <xs:element name="SearchLinkRefType" type="xs:string" minOccurs="0"/>
+        <xs:element name="SingularLabel" type="xs:string" minOccurs="0"/>
+        <xs:element name="StorageMode" type="xs:string" minOccurs="0"/>
+        <xs:element name="SupportInheritance" type="xs:string" minOccurs="0"/>
+        <xs:element name="SystemTable" type="xs:string" minOccurs="0"/>
+        <xs:element name="TableContents" type="xs:string" minOccurs="0"/>
+        <xs:element name="TableGroup" type="xs:string" minOccurs="0"/>
+        <xs:element name="TableType" type="xs:string" minOccurs="0"/>
+        <xs:element name="Tags" type="xs:string" minOccurs="0"/>
+        <xs:element name="TitleField1" type="xs:string" minOccurs="0"/>
+        <xs:element name="TitleField2" type="xs:string" minOccurs="0"/>
+        <xs:element name="ValidTimeStateFieldType" type="xs:string" minOccurs="0"/>
+        <xs:element name="Visibility" type="xs:string" minOccurs="0"/>
+        <xs:element name="Visible" type="xs:string" minOccurs="0"/>
+
+        <!-- Complex property elements -->
+        <xs:element name="SubscriberAccessLevel" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Correct" type="xs:string" minOccurs="0"/>
+              <xs:element name="Create" type="xs:string" minOccurs="0"/>
+              <xs:element name="Delete" type="xs:string" minOccurs="0"/>
+              <xs:element name="Invoke" type="xs:string" minOccurs="0"/>
+              <xs:element name="Read" type="xs:string" minOccurs="0"/>
+              <xs:element name="Update" type="xs:string" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        
+        <xs:element name="DeleteActions" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxTableDeleteAction" type="AxTableDeleteAction" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        
+        <xs:element name="FieldGroups" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxTableFieldGroup" type="AxTableFieldGroup" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="Fields" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element ref="AxTableField" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="FullTextIndexes" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxTableFullTextIndex" type="AxTableFullTextIndex" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        
+        <xs:element name="Indexes" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxTableIndex" type="AxTableIndex" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="Mappings" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxTableMapping" type="AxTableMapping" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        
+        <xs:element name="Relations" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element ref="AxTableRelation" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        
+        <xs:element name="StateMachines" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxStateMachine" type="AxStateMachine" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- CompilerMetadata complex type -->
+  <xs:complexType name="CompilerMetadataType">
+    <xs:sequence>
+      <xs:element name="Methods" minOccurs="0" maxOccurs="1">
+        <xs:complexType/>
+      </xs:element>
+      <xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded" namespace="##other"/> 
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- The root element is actually AxTable (not a container with AxTable inside) -->
+  <xs:element name="AxTable" type="AxTableType"/>
+
+</xs:schema>

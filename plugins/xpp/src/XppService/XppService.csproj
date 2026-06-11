@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!--
+      net10.0-windows (LTS) because the service uses Kestrel named-pipe
+      transport (Windows-only) and a global Windows mutex for single-
+      instance locking. The whole product is Windows-bound by virtue of
+      the net48 D365 metadata bridge below us, so this is honest, not
+      restrictive.
+    -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Xpp.Service</RootNamespace>
+    <AssemblyName>XppService</AssemblyName>
+    <UserSecretsId>xpp-service-v2</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Named-pipe transport for Kestrel is built into ASP.NET Core on .NET 8+
+         (no separate package — invoked via .ListenNamedPipe()). -->
+    <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.70.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.6.0" />
+    <!-- Local ONNX backend (currently inactive; kept for the offline/CPU path). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XppService.Contracts\XppService.Contracts.csproj" />
+    <ProjectReference Include="..\XppService.Domain\XppService.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Schema SQL is embedded into the assembly so the service has no
+      runtime file dependencies for first-run installation. Versioned
+      migration scripts (002-, 003-, ...) get added the same way later.
+    -->
+    <EmbeddedResource Include="Storage\Schema\*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- sqlite-vec native extension (vec0). No NuGet ships it; vendored
+         (289 KB, win-x64-only since the product is Windows-bound) and copied
+         next to the output so the service loads it via LoadExtension. See
+         native/README.md for version + license. -->
+    <None Include="native\win-x64\vec0.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

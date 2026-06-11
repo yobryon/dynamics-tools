@@ -1,0 +1,120 @@
+{
+  "_doc": [
+    "Minimal typed Wizard request for xpp_create_form.",
+    "Wizard = multi-step guided form. Users find wizards heavyweight — prefer Task when one screen would do.",
+    "Structure: ActionPane (Next/Back/Finish) + Tab styled 'Wizard' with one TabPage per step. Each step typically has a MainInstruction text and a group for inputs."
+  ],
+  "name": "MySetupWizard",
+  "dataSources": [
+    {
+      "_doc": "Wizards often have an in-memory temp table for the wizard's working state; here we use a Parameters-style backing table for simplicity.",
+      "name": "MyWizardTmp",
+      "kind": "Root",
+      "table": "MyWizardTmp",
+      "insertIfEmpty": true,
+      "fields": [
+        {"dataField": "Step1Input"},
+        {"dataField": "Step2Choice"},
+        {"dataField": "Step3Confirm"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:SetupWizard",
+    "pattern": "Wizard",
+    "patternVersion": "1.1",
+    "style": "Wizard",
+    "controls": [
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "controls": [
+          {
+            "name": "ActionPaneTab",
+            "kind": "ActionPaneTab",
+            "controls": [
+              {
+                "name": "WizardButtons",
+                "kind": "ButtonGroup",
+                "controls": [
+                  {"name": "BackButton",   "kind": "Button", "command": "Back"},
+                  {"name": "NextButton",   "kind": "Button", "command": "Next"},
+                  {"name": "FinishButton", "kind": "Button", "command": "Finish"},
+                  {"name": "CancelButton", "kind": "Button", "command": "Cancel"}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "_doc": "Wizard-styled Tab. Each TabPage = one step. Runtime renders Next/Back to navigate.",
+        "name": "WizardTab",
+        "kind": "Tab",
+        "style": "Wizard",
+        "controls": [
+          {
+            "name": "Step1",
+            "kind": "TabPage",
+            "caption": "@MyLabels:Step1Title",
+            "controls": [
+              {
+                "name": "Step1Instruction",
+                "kind": "StaticText",
+                "text": "@MyLabels:Step1Instruction",
+                "style": "MainInstruction"
+              },
+              {
+                "name": "Step1Group",
+                "kind": "Group",
+                "controls": [
+                  {"name": "Step1_Input", "kind": "String", "dataField": "Step1Input", "dataSource": "MyWizardTmp"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Step2",
+            "kind": "TabPage",
+            "caption": "@MyLabels:Step2Title",
+            "controls": [
+              {
+                "name": "Step2Instruction",
+                "kind": "StaticText",
+                "text": "@MyLabels:Step2Instruction",
+                "style": "MainInstruction"
+              },
+              {
+                "name": "Step2Group",
+                "kind": "Group",
+                "controls": [
+                  {"name": "Step2_Choice", "kind": "ComboBox", "dataField": "Step2Choice", "dataSource": "MyWizardTmp"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Step3",
+            "kind": "TabPage",
+            "caption": "@MyLabels:Step3Title",
+            "controls": [
+              {
+                "name": "Step3Instruction",
+                "kind": "StaticText",
+                "text": "@MyLabels:Step3Instruction",
+                "style": "MainInstruction"
+              },
+              {
+                "name": "Step3Group",
+                "kind": "Group",
+                "controls": [
+                  {"name": "Step3_Confirm", "kind": "CheckBox", "dataField": "Step3Confirm", "dataSource": "MyWizardTmp"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

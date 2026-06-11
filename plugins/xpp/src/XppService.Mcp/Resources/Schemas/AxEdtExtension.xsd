@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    elementFormDefault="qualified">
+
+  <!-- Define valid property names for EDT extensions - ONLY observed values -->
+  <xs:simpleType name="EdtPropertyNameType">
+    <xs:restriction base="xs:string">
+      <!-- Display properties (observed in XMLs) -->
+      <xs:enumeration value="Label"/>
+      <xs:enumeration value="HelpText"/>
+      <xs:enumeration value="FormHelp"/>
+      
+      <!-- String properties (observed in XMLs) -->
+      <xs:enumeration value="StringSize"/>
+      <xs:enumeration value="DatabaseStringSize"/>
+      
+      <!-- Localization properties (observed in XMLs) -->
+      <xs:enumeration value="CountryRegionCodes"/>
+      
+      <!-- Number properties (observed in XMLs) -->
+      <xs:enumeration value="NoOfDecimals"/>
+      
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Root element -->
+  <xs:element name="AxEdtExtension">
+    <xs:complexType>
+      <xs:sequence>
+        <!-- The Name element contains the extension name - can be ANY string -->
+        <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+        <xs:element name="ArrayElements" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="PropertyModifications" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxPropertyModification" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <!-- THIS Name element contains property names and should use EdtPropertyNameType -->
+                    <xs:element name="Name" type="EdtPropertyNameType" minOccurs="1" maxOccurs="1"/>
+                    <!-- Value is kept as string since different properties have different value types -->
+                    <xs:element name="Value" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

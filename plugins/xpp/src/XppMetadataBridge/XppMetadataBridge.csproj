@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      The bridge is locked to .NET Framework 4.8 because that's the TFM of
+      the Microsoft.Dynamics.AX.Metadata.* assemblies it loads. Everything
+      else in the v2 stack is modern .NET; this project is a quarantine
+      for the legacy dependency.
+    -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>XppMetadataBridge</AssemblyName>
+    <RootNamespace>XppMetadataBridge</RootNamespace>
+    <Nullable>annotations</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!--
+    Microsoft.Dynamics.AX.Metadata.* references live in a per-machine
+    generated file. When running under Claude Code, this file lives at
+    $(CLAUDE_PLUGIN_DATA)/BridgeReferences.props so it survives plugin
+    updates. Otherwise, the file is expected next to this csproj (the
+    dev-outside-of-Claude-Code path). Both locations are gitignored.
+    If a build hits "missing setup" below, run /xpp:setup (under Claude
+    Code) or tools/dev.ps1 -Action setup (outside).
+  -->
+  <PropertyGroup>
+    <BridgeReferencesPath Condition="'$(CLAUDE_PLUGIN_DATA)' != ''">$(CLAUDE_PLUGIN_DATA)\BridgeReferences.props</BridgeReferencesPath>
+    <BridgeReferencesPath Condition="'$(CLAUDE_PLUGIN_DATA)' == ''">$(MSBuildThisFileDirectory)BridgeReferences.props</BridgeReferencesPath>
+  </PropertyGroup>
+
+  <Import Project="$(BridgeReferencesPath)" Condition="Exists('$(BridgeReferencesPath)')" />
+
+  <Target Name="EnsureBridgeReferences" BeforeTargets="ResolveAssemblyReferences"
+          Condition="!Exists('$(BridgeReferencesPath)')">
+    <Error Text="BridgeReferences.props not found at $(BridgeReferencesPath). Run /xpp:setup (Claude Code) or tools/dev.ps1 -Action setup to generate it." />
+  </Target>
+
+</Project>

@@ -1,0 +1,316 @@
+<!--
+  Worked example: SimpleListDetails wireframe for a "Customer setup" form.
+  Pattern: SimpleListDetails - List Grid variant.
+  Demonstrates: title strip, navigation list (left), details pane (right)
+  with header group + FastTabs, callouts with numbered legend, and design
+  rationale annotations.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1440 900"
+     font-family="Segoe UI, system-ui, sans-serif"
+     font-size="13">
+
+  <!-- ===== BACKDROP ===== -->
+  <rect x="0" y="0" width="1440" height="900" fill="#ffffff"/>
+
+  <!-- ===== TITLE BAR ===== -->
+  <g id="title-bar">
+    <rect x="0" y="0" width="1440" height="32" fill="#f3f3f3" stroke="#cccccc"/>
+    <text x="16" y="21" fill="#333" font-size="14" font-weight="600">Customers</text>
+    <text x="1380" y="21" fill="#666" font-size="12" text-anchor="end">USMF</text>
+  </g>
+
+  <!-- ===== ACTION PANE ===== -->
+  <g id="action-pane">
+    <rect x="0" y="32" width="1440" height="76" fill="#fafafa" stroke="#cccccc"/>
+
+    <!-- Tab strip -->
+    <g font-size="12" fill="#333">
+      <rect x="0" y="32" width="120" height="22" fill="#ffffff" stroke="#cccccc"/>
+      <text x="60" y="48" text-anchor="middle" font-weight="600">Customer</text>
+      <text x="180" y="48" text-anchor="middle">Sell</text>
+      <text x="280" y="48" text-anchor="middle">Invoice</text>
+      <text x="380" y="48" text-anchor="middle">Collect</text>
+      <text x="480" y="48" text-anchor="middle">Project</text>
+      <text x="580" y="48" text-anchor="middle">Service</text>
+      <text x="680" y="48" text-anchor="middle">General</text>
+      <line x1="0" y1="54" x2="1440" y2="54" stroke="#cccccc"/>
+    </g>
+
+    <!-- Button groups on the active tab -->
+    <g font-size="11" fill="#333">
+      <!-- New/Edit group -->
+      <rect x="12" y="62" width="170" height="38" fill="#ffffff" stroke="#cccccc"/>
+      <text x="20" y="78">＋ New</text>
+      <text x="65" y="78">✎ Edit</text>
+      <text x="105" y="78">✕ Delete</text>
+      <text x="20" y="94" fill="#888" font-size="10">Maintain</text>
+
+      <!-- Setup group -->
+      <rect x="194" y="62" width="180" height="38" fill="#ffffff" stroke="#cccccc"/>
+      <text x="202" y="78">Default values</text>
+      <text x="280" y="78">Posting profile</text>
+      <text x="202" y="94" fill="#888" font-size="10">Setup</text>
+
+      <!-- Related group -->
+      <rect x="386" y="62" width="200" height="38" fill="#ffffff" stroke="#cccccc"/>
+      <text x="394" y="78">Sales orders</text>
+      <text x="478" y="78">Invoices</text>
+      <text x="528" y="78">Statement</text>
+      <text x="394" y="94" fill="#888" font-size="10">Related information</text>
+    </g>
+  </g>
+
+  <!-- ===== LEFT: NAVIGATION LIST ===== -->
+  <g id="nav-list">
+    <!-- Container border -->
+    <rect x="0" y="108" width="320" height="552" fill="#ffffff" stroke="#cccccc"/>
+
+    <!-- Quick filter -->
+    <g>
+      <rect x="8" y="116" width="304" height="32" fill="#ffffff" stroke="#cccccc"/>
+      <text x="16" y="136" fill="#333">Filter:</text>
+      <rect x="58" y="120" width="180" height="24" fill="#ffffff" stroke="#999"/>
+      <text x="66" y="136" fill="#999" font-style="italic">Customer account</text>
+      <text x="244" y="136" fill="#666">▾</text>
+    </g>
+
+    <!-- List header -->
+    <line x1="0" y1="156" x2="320" y2="156" stroke="#cccccc"/>
+
+    <!-- List items (List Grid variant: 2 fields per row, multi-line) -->
+    <g font-size="12">
+      <!-- Row 1 (selected) -->
+      <rect x="0" y="156" width="320" height="48" fill="#e6f1fb" stroke="#cccccc"/>
+      <text x="12" y="176" fill="#0066a1" font-weight="600">US-001</text>
+      <text x="12" y="194" fill="#333">Contoso Retail</text>
+      <text x="304" y="180" fill="#0066a1" text-anchor="end" font-size="11">▸</text>
+
+      <!-- Row 2 -->
+      <line x1="0" y1="204" x2="320" y2="204" stroke="#eeeeee"/>
+      <text x="12" y="224" fill="#333">US-002</text>
+      <text x="12" y="242" fill="#666">Northwind Traders</text>
+
+      <!-- Row 3 -->
+      <line x1="0" y1="252" x2="320" y2="252" stroke="#eeeeee"/>
+      <text x="12" y="272" fill="#333">US-003</text>
+      <text x="12" y="290" fill="#666">Adventure Works Cycles</text>
+
+      <!-- Row 4 -->
+      <line x1="0" y1="300" x2="320" y2="300" stroke="#eeeeee"/>
+      <text x="12" y="320" fill="#333">US-004</text>
+      <text x="12" y="338" fill="#666">Fabrikam Industries</text>
+
+      <!-- Row 5 -->
+      <line x1="0" y1="348" x2="320" y2="348" stroke="#eeeeee"/>
+      <text x="12" y="368" fill="#333">US-005</text>
+      <text x="12" y="386" fill="#666">Wide World Importers</text>
+
+      <!-- Row 6 -->
+      <line x1="0" y1="396" x2="320" y2="396" stroke="#eeeeee"/>
+      <text x="12" y="416" fill="#333">US-006</text>
+      <text x="12" y="434" fill="#666">Tailspin Toys</text>
+
+      <!-- Row 7 -->
+      <line x1="0" y1="444" x2="320" y2="444" stroke="#eeeeee"/>
+      <text x="12" y="464" fill="#333">US-007</text>
+      <text x="12" y="482" fill="#666">Coho Vineyard &amp; Winery</text>
+
+      <!-- More indicator -->
+      <text x="160" y="540" text-anchor="middle" fill="#888" font-style="italic">... 247 more</text>
+    </g>
+  </g>
+
+  <!-- ===== RIGHT: DETAILS PANE (SidePanel) ===== -->
+  <g id="details-pane">
+    <!-- Container -->
+    <rect x="320" y="108" width="1120" height="552" fill="#ffffff" stroke="#cccccc"/>
+
+    <!-- Title strip -->
+    <g id="title-strip">
+      <rect x="320" y="108" width="1120" height="72" fill="#fafafa" stroke="#cccccc"/>
+      <text x="340" y="142" fill="#333" font-size="22" font-weight="600">US-001 : Contoso Retail</text>
+
+      <!-- Status fields (upper-right) -->
+      <g font-size="11" fill="#333">
+        <text x="1420" y="128" text-anchor="end" fill="#888">Status</text>
+        <rect x="1290" y="134" width="130" height="22" fill="#e8f5e9" stroke="#88c294"/>
+        <text x="1355" y="149" text-anchor="middle" fill="#2e7d32" font-weight="600">Active</text>
+        <text x="1420" y="170" text-anchor="end" fill="#666">On hold: No</text>
+      </g>
+    </g>
+
+    <!-- Header group: list fields (Code + Name) re-shown first per SL+D guidelines -->
+    <g id="header-group">
+      <rect x="320" y="180" width="1120" height="60" fill="#ffffff" stroke="#cccccc"/>
+      <g font-size="13">
+        <text x="340" y="206" fill="#666">Customer account</text>
+        <rect x="468" y="192" width="180" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="476" y="208" fill="#333">US-001</text>
+
+        <text x="700" y="206" fill="#666">Name</text>
+        <rect x="760" y="192" width="320" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="768" y="208" fill="#333">Contoso Retail</text>
+      </g>
+      <g font-size="11" fill="#888">
+        <text x="340" y="232">Header group repeats list fields in list order (per SL+D guideline).</text>
+      </g>
+    </g>
+
+    <!-- FastTab 1: General (expanded) -->
+    <g id="fasttab-general">
+      <!-- Header -->
+      <rect x="320" y="240" width="1120" height="36" fill="#f3f3f3" stroke="#cccccc"/>
+      <text x="340" y="262" fill="#333" font-weight="600">▼ General</text>
+
+      <!-- Body -->
+      <rect x="320" y="276" width="1120" height="180" fill="#ffffff" stroke="#cccccc"/>
+
+      <!-- Two-column field layout per default Fields and Field Groups subpattern -->
+      <g font-size="13">
+        <!-- Left column -->
+        <text x="340" y="306" fill="#666">Customer group</text>
+        <rect x="468" y="292" width="200" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="476" y="308" fill="#333">Retail</text>
+        <text x="660" y="308" fill="#666">▾</text>
+
+        <text x="340" y="340" fill="#666">Currency</text>
+        <rect x="468" y="326" width="200" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="476" y="342" fill="#333">USD</text>
+        <text x="660" y="342" fill="#666">▾</text>
+
+        <text x="340" y="374" fill="#666">Payment terms</text>
+        <rect x="468" y="360" width="200" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="476" y="376" fill="#333">Net 30</text>
+        <text x="660" y="376" fill="#666">▾</text>
+
+        <text x="340" y="408" fill="#666">Sales tax group</text>
+        <rect x="468" y="394" width="200" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="476" y="410" fill="#333">CA-OAK</text>
+        <text x="660" y="410" fill="#666">▾</text>
+
+        <!-- Right column -->
+        <text x="780" y="306" fill="#666">Credit limit</text>
+        <rect x="900" y="292" width="160" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="1052" y="308" text-anchor="end" fill="#333">25,000.00</text>
+
+        <text x="780" y="340" fill="#666">Credit rating</text>
+        <rect x="900" y="326" width="160" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="908" y="342" fill="#333">A</text>
+        <text x="1052" y="342" fill="#666">▾</text>
+
+        <text x="780" y="374" fill="#666">Account statement</text>
+        <rect x="900" y="360" width="160" height="22" fill="#ffffff" stroke="#999"/>
+        <text x="908" y="376" fill="#333">Always</text>
+        <text x="1052" y="376" fill="#666">▾</text>
+
+        <text x="780" y="408" fill="#666" font-style="italic">+ 4 fields, second screen</text>
+      </g>
+    </g>
+
+    <!-- FastTab 2: Address (collapsed) -->
+    <g id="fasttab-address">
+      <rect x="320" y="456" width="1120" height="40" fill="#f3f3f3" stroke="#cccccc"/>
+      <text x="340" y="481" fill="#333" font-weight="600">▸ Address</text>
+      <text x="500" y="481" fill="#888" font-style="italic">1 Main Street, Seattle WA 98101, USA</text>
+    </g>
+
+    <!-- FastTab 3: Sales (collapsed) -->
+    <g id="fasttab-sales">
+      <rect x="320" y="496" width="1120" height="40" fill="#f3f3f3" stroke="#cccccc"/>
+      <text x="340" y="521" fill="#333" font-weight="600">▸ Sales demographics</text>
+      <text x="500" y="521" fill="#888" font-style="italic">Segment: Retail, Region: West</text>
+    </g>
+
+    <!-- FastTab 4: Financial (collapsed) -->
+    <g id="fasttab-financial">
+      <rect x="320" y="536" width="1120" height="40" fill="#f3f3f3" stroke="#cccccc"/>
+      <text x="340" y="561" fill="#333" font-weight="600">▸ Financial dimensions</text>
+      <text x="500" y="561" fill="#888" font-style="italic">Department: 022, Cost center: 008</text>
+    </g>
+
+    <!-- FastTab 5: Default values (collapsed) -->
+    <g id="fasttab-defaults">
+      <rect x="320" y="576" width="1120" height="40" fill="#f3f3f3" stroke="#cccccc"/>
+      <text x="340" y="601" fill="#333" font-weight="600">▸ Default delivery</text>
+      <text x="500" y="601" fill="#888" font-style="italic">Mode: Ground, Terms: FOB Origin</text>
+    </g>
+
+    <!-- FastTab 6: Other (collapsed) -->
+    <g id="fasttab-other">
+      <rect x="320" y="616" width="1120" height="40" fill="#f3f3f3" stroke="#cccccc"/>
+      <text x="340" y="641" fill="#333" font-weight="600">▸ Compliance</text>
+      <text x="500" y="641" fill="#888" font-style="italic">GDPR: standard, NDA: on file</text>
+    </g>
+  </g>
+
+  <!-- ===== ANNOTATIONS LAYER ===== -->
+  <g id="annotations" font-size="12">
+    <!-- Callout 1: Title strip format -->
+    <g>
+      <circle cx="600" cy="142" r="10" fill="#d9534f"/>
+      <text x="600" y="146" text-anchor="middle" fill="white" font-weight="bold">1</text>
+    </g>
+
+    <!-- Callout 2: Status group position -->
+    <g>
+      <circle cx="1290" cy="144" r="10" fill="#d9534f"/>
+      <text x="1290" y="148" text-anchor="middle" fill="white" font-weight="bold">2</text>
+    </g>
+
+    <!-- Callout 3: List Grid 2-field row -->
+    <g>
+      <circle cx="200" cy="180" r="10" fill="#d9534f"/>
+      <text x="200" y="184" text-anchor="middle" fill="white" font-weight="bold">3</text>
+    </g>
+
+    <!-- Callout 4: Header group repeats list fields -->
+    <g>
+      <circle cx="450" cy="210" r="10" fill="#d9534f"/>
+      <text x="450" y="214" text-anchor="middle" fill="white" font-weight="bold">4</text>
+    </g>
+
+    <!-- Callout 5: First FastTab expanded -->
+    <g>
+      <circle cx="340" cy="258" r="10" fill="#d9534f"/>
+      <text x="340" y="262" text-anchor="middle" fill="white" font-weight="bold">5</text>
+    </g>
+
+    <!-- Callout 6: FastTab summary line on collapsed -->
+    <g>
+      <circle cx="510" cy="481" r="10" fill="#d9534f"/>
+      <text x="510" y="485" text-anchor="middle" fill="white" font-weight="bold">6</text>
+    </g>
+  </g>
+
+  <!-- ===== LEGEND ===== -->
+  <g id="legend" transform="translate(20, 680)" font-size="12" fill="#333">
+    <text x="0" y="0" font-weight="bold" font-size="13">Annotations</text>
+    <text x="0" y="20"><tspan fill="#d9534f" font-weight="bold">①</tspan> Title strip — required by DetailsMaster / SimpleListDetails; format is "ID : Description", large font (~22px).</text>
+    <text x="0" y="38"><tspan fill="#d9534f" font-weight="bold">②</tspan> Entity-status group — upper-right of title strip. Workflow + on-hold here, NOT in the form caption.</text>
+    <text x="0" y="56"><tspan fill="#d9534f" font-weight="bold">③</tspan> Navigation list uses the List Grid variant — 2-3 fields per row, multi-line. ID prominent; description in muted gray below.</text>
+    <text x="0" y="74"><tspan fill="#d9534f" font-weight="bold">④</tspan> Header group repeats the list fields IN LIST ORDER as the first detail-pane elements — per SL+D guideline (lets user edit + see labels).</text>
+    <text x="0" y="92"><tspan fill="#d9534f" font-weight="bold">⑤</tspan> First FastTab content fully visible without scrolling on a 1440×900 viewport. Subsequent FastTabs collapsed with summary lines.</text>
+    <text x="0" y="110"><tspan fill="#d9534f" font-weight="bold">⑥</tspan> Collapsed FastTabs show a summary line — key fields surfaced even when collapsed. Each tab's summary shows different fields per its concern.</text>
+  </g>
+
+  <!-- ===== DESIGN RATIONALE ===== -->
+  <g id="rationale" transform="translate(800, 680)" font-size="11" fill="#555">
+    <text x="0" y="0" font-weight="bold" font-size="12" fill="#333">Design rationale</text>
+    <text x="0" y="20">• Pattern: SimpleListDetails — List Grid variant (default).</text>
+    <text x="0" y="36">  Customer entity has ~12 fields, 0 child collections → fits SL+D criteria</text>
+    <text x="0" y="52">  (6+ fields, 0-5 child collections).</text>
+    <text x="0" y="72">• Navigation list shows AccountNum + Name — the Identification field group</text>
+    <text x="0" y="88">  on CustTable (2 fields, multi-line list).</text>
+    <text x="0" y="108">• FastTab order: General → Address → Sales → Financial → Defaults → Compliance.</text>
+    <text x="0" y="124">  General first (most-frequently edited fields per MS guidelines).</text>
+    <text x="0" y="144">• No FactBoxes in this wireframe — SL+D allows them, but the entity-status</text>
+    <text x="0" y="160">  area carries the most-needed quick-reference info already.</text>
+    <text x="0" y="180" font-style="italic">Open questions: should "On hold" be its own toggle or part of Status?</text>
+  </g>
+
+  <!-- ===== TITLE LABEL ===== -->
+  <g transform="translate(720, 870)" text-anchor="middle" fill="#888" font-size="11">
+    <text x="0" y="0" font-style="italic">Wireframe: Customer setup form (SimpleListDetails - List Grid) — for design review, not implementation</text>
+  </g>
+</svg>

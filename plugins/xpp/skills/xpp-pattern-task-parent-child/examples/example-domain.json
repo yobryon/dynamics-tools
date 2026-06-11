@@ -1,0 +1,90 @@
+{
+  "_doc": [
+    "LEGACY PATTERN — use ONLY for migrating an existing AX 2012 form.",
+    "DO NOT use TaskParentChild (a.k.a. 'Task Double') for new forms. Modern equivalents:",
+    "  - Details Transaction for header+lines business documents",
+    "  - Simple List and Details for master/detail setup data",
+    "  - Drop Dialog + Simple List for inline child collection edits",
+    "This typed example is provided for migration / inspection only.",
+    "Structure: ActionPane + parent record group + horizontal splitter + child grid."
+  ],
+  "name": "MyLegacyTaskParentChildForm",
+  "dataSources": [
+    {
+      "name": "MyParentRecord",
+      "kind": "Root",
+      "table": "MyParentRecord",
+      "fields": [
+        {"dataField": "ParentId"},
+        {"dataField": "ParentName"}
+      ]
+    },
+    {
+      "name": "MyChildRecord",
+      "kind": "Concrete",
+      "table": "MyChildRecord",
+      "joinSource": "MyParentRecord",
+      "fields": [
+        {"dataField": "LineNum"},
+        {"dataField": "ChildValue"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyLegacyTaskParentChild",
+    "pattern": "TaskDoubleInDocument",
+    "patternVersion": "1.1",
+    "style": "Task",
+    "titleDataSource": "MyParentRecord",
+    "controls": [
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "dataSource": "MyParentRecord",
+        "controls": [
+          {
+            "name": "ActionPaneTab",
+            "kind": "ActionPaneTab",
+            "controls": [
+              {
+                "name": "Buttons",
+                "kind": "ButtonGroup",
+                "controls": [
+                  {"name": "OkButton",     "kind": "CommandButton", "command": "OK"},
+                  {"name": "CancelButton", "kind": "CommandButton", "command": "Cancel"}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "_doc": "Parent record group: identifying fields of the parent.",
+        "name": "ParentGroup",
+        "kind": "Group",
+        "dataSource": "MyParentRecord",
+        "controls": [
+          {"name": "Parent_ParentId",   "kind": "String", "dataField": "ParentId",   "dataSource": "MyParentRecord"},
+          {"name": "Parent_ParentName", "kind": "String", "dataField": "ParentName", "dataSource": "MyParentRecord"}
+        ]
+      },
+      {
+        "_doc": "Horizontal splitter between parent and children.",
+        "name": "HorizontalSplitter",
+        "kind": "Group",
+        "style": "HorizontalSplitter"
+      },
+      {
+        "_doc": "Child grid: lines belonging to the parent.",
+        "name": "ChildGrid",
+        "kind": "Grid",
+        "dataSource": "MyChildRecord",
+        "style": "Tabular",
+        "controls": [
+          {"name": "Child_LineNum",    "kind": "Integer", "dataField": "LineNum",    "dataSource": "MyChildRecord"},
+          {"name": "Child_ChildValue", "kind": "String",  "dataField": "ChildValue", "dataSource": "MyChildRecord"}
+        ]
+      }
+    ]
+  }
+}

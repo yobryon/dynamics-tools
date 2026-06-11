@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Xpp.Service.Mcp</RootNamespace>
+    <AssemblyName>XppService.Mcp</AssemblyName>
+    <!--
+      Single-file publish friendly. AOT comes later once we know what
+      reflection patterns the MCP SDK + Grpc.Net.Client need.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Official Microsoft / Anthropic MCP server SDK -->
+    <PackageReference Include="ModelContextProtocol" Version="1.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <!-- gRPC client over the named pipe to XppService -->
+    <PackageReference Include="Grpc.Net.Client" Version="2.70.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Generated proto types are referenced directly; no codegen step. -->
+    <ProjectReference Include="..\XppService.Contracts\XppService.Contracts.csproj" />
+
+    <!-- Domain types are the agent-facing authoring API. -->
+    <ProjectReference Include="..\XppService.Domain\XppService.Domain.csproj" />
+
+    <!--
+      Build-only references to the sibling executables that this MCP server
+      launches at runtime (XppService.exe spawns XppMetadataBridge.exe; we
+      spawn XppService.exe ourselves if its named pipe is dead). We don't
+      consume their DLLs — ReferenceOutputAssembly=false keeps them out of
+      our bin dir — but listing them here means `dotnet run` on this csproj
+      cascades to build them too. Without this, `dotnet run` would launch
+      a working MCP that fails the moment a tool needs the service.
+
+      SkipGetTargetFrameworkProperties=true lets us reference a net48 project
+      (XppMetadataBridge) from this net9 project without MSBuild trying to
+      reconcile TFMs.
+    -->
+    <ProjectReference Include="..\XppService\XppService.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\XppMetadataBridge\XppMetadataBridge.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      MCP resource payloads (XSDs, our-voice guides) are baked into the
+      assembly so a single-file publish carries everything the server
+      advertises. The default manifest name is
+      Xpp.Service.Mcp.<RelativePath with / => .>
+    -->
+    <EmbeddedResource Include="Resources\Schemas\*.xsd" />
+  </ItemGroup>
+
+</Project>

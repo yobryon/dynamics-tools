@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    elementFormDefault="qualified"
+    attributeFormDefault="unqualified">
+
+  <xs:import namespace="http://www.w3.org/2001/XMLSchema-instance" 
+             schemaLocation="http://www.w3.org/2001/XMLSchema-instance"/>
+
+  <!-- Root element -->
+  <xs:element name="AxTableExtension" type="AxTableExtensionType"/>
+
+  <!-- AxTableExtension complex type -->
+  <xs:complexType name="AxTableExtensionType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="IsObsolete" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FormRef" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FieldGroupExtensions" type="FieldGroupExtensionsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FieldGroups" type="FieldGroupsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FieldModifications" type="FieldModificationsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Fields" type="FieldsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FullTextIndexes" type="FullTextIndexesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Indexes" type="IndexesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Mappings" type="MappingsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PropertyModifications" type="PropertyModificationsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RelationExtensions" type="RelationExtensionsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RelationModifications" type="RelationModificationsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Relations" type="RelationsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Fields container type - using choice for polymorphic field types -->
+  <xs:complexType name="FieldsType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="AxTableField" type="AxTableFieldType"/>
+      <xs:element name="AxTableFieldGroupField" type="AxTableFieldGroupFieldType"/>
+      <xs:element name="AxTableIndexField" type="AxTableIndexFieldType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- Base AxTableField complex type - using xs:all for flexible ordering -->
+  <xs:complexType name="AxTableFieldType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HelpText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EnumType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExtendedDataType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="StringSize" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AssetClassification" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IgnoreEDTRelation" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsObsolete" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CountryRegionCodes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CountryRegionContextField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FeatureClass" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AosAuthorization" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowEdit" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowEditOnCreate" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Visible" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsSystemGenerated" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsManuallyUpdated" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Mandatory" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SysSharingType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SaveContents" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="GroupPrompt" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MinReadAccess" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Add AxTableFieldEnum as a derived type -->
+  <xs:complexType name="AxTableFieldEnum">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- EnumType is already in the base, no need to add anything here -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldInt type -->
+  <xs:complexType name="AxTableFieldInt">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- Int-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldInt64 type -->
+  <xs:complexType name="AxTableFieldInt64">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- Int64-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldString type -->
+  <xs:complexType name="AxTableFieldString">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- StringSize is already in base -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldReal type -->
+  <xs:complexType name="AxTableFieldReal">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- Real-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldDate type -->
+  <xs:complexType name="AxTableFieldDate">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- Date-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldTime type -->
+  <xs:complexType name="AxTableFieldTime">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- Time-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldUtcDateTime type -->
+  <xs:complexType name="AxTableFieldUtcDateTime">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- DateTime-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldGuid type -->
+  <xs:complexType name="AxTableFieldGuid">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- Guid-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldContainer type -->
+  <xs:complexType name="AxTableFieldContainer">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- Container-specific properties if any -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldExtendedDataType type -->
+  <xs:complexType name="AxTableFieldExtendedDataType">
+    <xs:complexContent>
+      <xs:extension base="AxTableFieldType">
+        <!-- ExtendedDataType is already in base -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableFieldGroupField type - using xs:all for flexible ordering -->
+  <xs:complexType name="AxTableFieldGroupFieldType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PositionType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PreviousSibling" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Relations container type -->
+  <xs:complexType name="RelationsType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="AxTableRelation" type="AxTableRelationType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- Base AxTableRelation complex type - using xs:all for flexible ordering -->
+  <xs:complexType name="AxTableRelationType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Cardinality" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EDTRelation" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RelatedTable" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RelatedTableCardinality" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RelatedTableRole" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Role" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RelationshipType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="UseDefaultRoleNames" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Validate" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="OnDelete" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Constraints" type="ConstraintsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Index" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsManuallyUpdated" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsSystemGenerated" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EntityRelationshipRole" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CreateNavigationPropertyMethods" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NavigationPropertyMethodNameOverride" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+  
+  <!-- AxTableRelationForeignKey type -->
+  <xs:complexType name="AxTableRelationForeignKey">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationType">
+        <xs:sequence/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Constraints container type -->
+  <xs:complexType name="ConstraintsType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="AxTableRelationConstraint" type="AxTableRelationConstraintType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- Base AxTableRelationConstraint complex type - using xs:all for flexible ordering -->
+  <xs:complexType name="AxTableRelationConstraintType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SourceEDT" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Field" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RelatedField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ValueStr" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- AxTableRelationConstraintField type - derived from base -->
+  <xs:complexType name="AxTableRelationConstraintField">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraintType">
+        <!-- Field-specific constraint properties are already in base -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableRelationConstraintFixed type -->
+  <!-- Change the name from AxTableRelationConstraintFixedType to AxTableRelationConstraintFixed -->
+  <xs:complexType name="AxTableRelationConstraintFixed">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraintType">
+        <!-- Fixed-specific constraint properties are already in base -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- AxTableRelationConstraintRelatedFixed type -->
+  <!-- Change the name from AxTableRelationConstraintRelatedFixedType to AxTableRelationConstraintRelatedFixed -->
+  <xs:complexType name="AxTableRelationConstraintRelatedFixed">
+    <xs:complexContent>
+      <xs:extension base="AxTableRelationConstraintType">
+        <!-- RelatedFixed-specific constraint properties are already in base -->
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- FieldGroupExtensions container type -->
+  <xs:complexType name="FieldGroupExtensionsType">
+    <xs:sequence>
+      <xs:element name="AxTableFieldGroupExtension" type="AxTableFieldGroupExtensionType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxTableFieldGroupExtension type -->
+  <xs:complexType name="AxTableFieldGroupExtensionType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Fields" type="FieldGroupFieldsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- FieldGroups container type -->
+  <xs:complexType name="FieldGroupsType">
+    <xs:sequence>
+      <xs:element name="AxTableFieldGroup" type="AxTableFieldGroupType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxTableFieldGroup type -->
+  <xs:complexType name="AxTableFieldGroupType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Fields" type="FieldGroupFieldsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- FieldGroupFields container type -->
+  <xs:complexType name="FieldGroupFieldsType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="AxTableFieldGroupField" type="AxTableFieldGroupFieldType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- FieldModifications container type - allows both AxFieldModification and AxExtensionModification -->
+  <xs:complexType name="FieldModificationsType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="AxExtensionModification" type="AxExtensionModificationType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- FullTextIndexes container type -->
+  <xs:complexType name="FullTextIndexesType">
+    <xs:sequence>
+      <xs:element name="AxTableFullTextIndex" type="AxTableFullTextIndexType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxTableFullTextIndex type -->
+  <xs:complexType name="AxTableFullTextIndexType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Fields" type="FullTextIndexFieldsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- FullTextIndexFields container type -->
+  <xs:complexType name="FullTextIndexFieldsType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="AxTableIndexField" type="AxTableIndexFieldType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- Indexes container type - allows AxTableRelation for compatibility with malformed files -->
+  <xs:complexType name="IndexesType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="AxTableIndex" type="AxTableIndexType"/>
+      <xs:element name="AxTableRelation" type="AxTableRelationType"/>
+    </xs:choice>
+  </xs:complexType>
+  
+  <!-- AxTableIndex complex type - using xs:all for flexible ordering -->
+  <xs:complexType name="AxTableIndexType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="AllowDuplicates" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowPageLocks" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IndexType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Enabled" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Fields" type="AxTableIndexFieldsType" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+  
+  <!-- AxTableIndexFields complex type -->
+  <xs:complexType name="AxTableIndexFieldsType">
+    <xs:sequence>
+      <xs:element name="AxTableIndexField" type="AxTableIndexFieldType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  
+  <!-- AxTableIndexField complex type - using xs:all for flexible ordering -->
+  <xs:complexType name="AxTableIndexFieldType">
+    <xs:all>
+      <xs:element name="DataField" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="IncludedColumn" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Mappings container type -->
+  <xs:complexType name="MappingsType">
+    <xs:sequence>
+      <xs:element name="AxTableMapping" type="AxTableMappingType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxTableMapping type - using xs:all for flexible ordering -->
+  <xs:complexType name="AxTableMappingType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MappingTable" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Connections" type="MappingConnectionsType" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- MappingConnections container type -->
+  <xs:complexType name="MappingConnectionsType">
+    <xs:sequence>
+      <xs:element name="AxTableMappingConnection" type="AxTableMappingConnectionType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxTableMappingConnection type -->
+  <xs:complexType name="AxTableMappingConnectionType">
+    <xs:sequence>
+      <xs:element name="MapField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MapFieldTo" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- PropertyModifications container type -->
+  <xs:complexType name="PropertyModificationsType">
+    <xs:sequence>
+      <xs:element name="AxPropertyModification" type="AxPropertyModificationType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  
+  <!-- AxPropertyModification complex type -->
+  <xs:complexType name="AxPropertyModificationType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:string" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- RelationModifications container type -->
+  <xs:complexType name="RelationModificationsType">
+    <xs:sequence>
+      <xs:element name="AxExtensionModification" type="AxExtensionModificationType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- RelationExtensions container type -->
+  <xs:complexType name="RelationExtensionsType">
+    <xs:sequence>
+      <!-- Empty for now since AxRelationExtension is never used -->
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxExtensionModification type -->
+  <xs:complexType name="AxExtensionModificationType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PropertyModifications" type="PropertyModificationsType" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Yes/No enumeration type -->
+  <xs:simpleType name="YesNoType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Yes"/>
+      <xs:enumeration value="No"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

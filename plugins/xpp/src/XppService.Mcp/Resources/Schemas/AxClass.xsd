@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    elementFormDefault="qualified">
+
+  <!-- Root element -->
+  <xs:element name="AxClass" type="AxClassType"/>
+
+  <!-- AxClass complex type -->
+  <xs:complexType name="AxClassType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="SourceCode" type="SourceCodeType" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="IsObsolete" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- SourceCode complex type -->
+  <xs:complexType name="SourceCodeType">
+    <xs:sequence>
+      <xs:element name="Declaration" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Methods" type="MethodsType" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Methods container type -->
+  <xs:complexType name="MethodsType">
+    <xs:sequence>
+      <xs:element name="Method" type="MethodType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Method complex type -->
+  <xs:complexType name="MethodType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Source" type="xs:string" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

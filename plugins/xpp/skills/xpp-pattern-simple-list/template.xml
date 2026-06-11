@@ -1,0 +1,159 @@
+<!--
+  SimpleList template, extracted from MS's authoring prompts and reshaped
+  with {{PLACEHOLDERS}} for fill-in authoring.
+
+  Replace:
+    {{FORM_NAME}}            - PascalCase form name; must match the file name
+    {{TABLE_NAME}}           - Primary table the form binds to
+    {{CAPTION_LABEL}}        - Label reference @File:Id, e.g. @MyLabels:MyFormCaption
+    {{FIRST_FIELD_NAME}}     - Field used for default quick-filter column
+    {{FIRST_COLUMN_TYPE}}    - Column control type, e.g. AxFormInt64Control, AxFormStringControl
+    {{FIRST_COLUMN_PRIM}}    - Primitive name, e.g. Int64, String
+    {{SECOND_FIELD_NAME}}    - Second column field
+    {{SECOND_COLUMN_TYPE}}   - Second column control type
+    {{SECOND_COLUMN_PRIM}}   - Second column primitive
+
+  Add or remove <AxFormDataSourceField> entries to match the actual field set.
+  If the table is SaveDataPerCompany="No" (shared), remove DataAreaId.
+
+  Add more grid-cell controls (one per displayed column) by copying the
+  AxFormControl blocks under FormGridControl1. Match each column's i:type to
+  the field's underlying primitive (see dynamics-xpp:xpp-pattern-simple-list/SKILL.md
+  for the type table).
+-->
+<?xml version="1.0" encoding="utf-8"?>
+<AxForm xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="Microsoft.Dynamics.AX.Metadata.V6">
+	<Name>{{FORM_NAME}}</Name>
+	<SourceCode>
+		<Methods xmlns="">
+			<Method>
+				<Name>classDeclaration</Name>
+				<Source><![CDATA[
+[Form]
+public class {{FORM_NAME}} extends FormRun
+{
+}
+]]></Source>
+			</Method>
+		</Methods>
+		<DataSources xmlns="" />
+		<DataControls xmlns="" />
+		<Members xmlns="" />
+	</SourceCode>
+	<DataSources>
+		<AxFormDataSource xmlns="">
+			<Name>{{TABLE_NAME}}</Name>
+			<Table>{{TABLE_NAME}}</Table>
+			<Fields>
+				<AxFormDataSourceField>
+					<DataField>{{FIRST_FIELD_NAME}}</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>{{SECOND_FIELD_NAME}}</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>DataAreaId</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>Partition</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>RecId</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>TableId</DataField>
+				</AxFormDataSourceField>
+			</Fields>
+			<ReferencedDataSources />
+			<DataSourceLinks />
+			<DerivedDataSources />
+		</AxFormDataSource>
+	</DataSources>
+	<Design>
+		<Caption xmlns="">{{CAPTION_LABEL}}</Caption>
+		<DataSource xmlns="">{{TABLE_NAME}}</DataSource>
+		<Pattern xmlns="">SimpleList</Pattern>
+		<PatternVersion xmlns="">1.1</PatternVersion>
+		<Style xmlns="">SimpleList</Style>
+		<TitleDataSource xmlns="">{{TABLE_NAME}}</TitleDataSource>
+		<Controls xmlns="">
+			<AxFormControl xmlns=""
+				i:type="AxFormActionPaneControl">
+				<Name>FormActionPaneControl1</Name>
+				<Type>ActionPane</Type>
+				<FormControlExtension
+					i:nil="true" />
+				<Controls />
+			</AxFormControl>
+			<AxFormControl xmlns=""
+				i:type="AxFormGroupControl">
+				<Name>FormGroupControl1</Name>
+				<Pattern>CustomAndQuickFilters</Pattern>
+				<PatternVersion>1.1</PatternVersion>
+				<Type>Group</Type>
+				<WidthMode>SizeToAvailable</WidthMode>
+				<FormControlExtension
+					i:nil="true" />
+				<Controls>
+					<AxFormControl>
+						<Name>QuickFilterControl1</Name>
+						<FormControlExtension>
+							<Name>QuickFilterControl</Name>
+							<ExtensionComponents />
+							<ExtensionProperties>
+								<AxFormControlExtensionProperty>
+									<Name>targetControlName</Name>
+									<Type>String</Type>
+									<Value>FormGridControl1</Value>
+								</AxFormControlExtensionProperty>
+								<AxFormControlExtensionProperty>
+									<Name>placeholderText</Name>
+									<Type>String</Type>
+								</AxFormControlExtensionProperty>
+								<AxFormControlExtensionProperty>
+									<Name>defaultColumnName</Name>
+									<Type>String</Type>
+									<Value>FormGridControl1_{{FIRST_FIELD_NAME}}</Value>
+								</AxFormControlExtensionProperty>
+							</ExtensionProperties>
+						</FormControlExtension>
+					</AxFormControl>
+				</Controls>
+				<ArrangeMethod>HorizontalLeft</ArrangeMethod>
+				<FrameType>None</FrameType>
+				<Style>CustomFilter</Style>
+				<ViewEditMode>Edit</ViewEditMode>
+			</AxFormControl>
+			<AxFormControl xmlns=""
+				i:type="AxFormGridControl">
+				<Name>FormGridControl1</Name>
+				<Type>Grid</Type>
+				<FormControlExtension
+					i:nil="true" />
+				<Controls>
+					<AxFormControl xmlns=""
+						i:type="{{FIRST_COLUMN_TYPE}}">
+						<Name>FormGridControl1_{{FIRST_FIELD_NAME}}</Name>
+						<Type>{{FIRST_COLUMN_PRIM}}</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<DataField>{{FIRST_FIELD_NAME}}</DataField>
+						<DataSource>{{TABLE_NAME}}</DataSource>
+					</AxFormControl>
+					<AxFormControl xmlns=""
+						i:type="{{SECOND_COLUMN_TYPE}}">
+						<Name>FormGridControl1_{{SECOND_FIELD_NAME}}</Name>
+						<Type>{{SECOND_COLUMN_PRIM}}</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<DataField>{{SECOND_FIELD_NAME}}</DataField>
+						<DataSource>{{TABLE_NAME}}</DataSource>
+					</AxFormControl>
+				</Controls>
+				<DataSource>{{TABLE_NAME}}</DataSource>
+				<Style>Tabular</Style>
+			</AxFormControl>
+		</Controls>
+	</Design>
+	<Parts />
+</AxForm>

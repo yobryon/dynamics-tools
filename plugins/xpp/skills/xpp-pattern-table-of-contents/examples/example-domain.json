@@ -1,0 +1,96 @@
+{
+  "_doc": [
+    "Minimal typed TableOfContents request for xpp_create_form.",
+    "TableOfContents = parameter/setup form with vertical tabs on the left, each tab carrying one functional area's settings.",
+    "Backing table is conventionally a single-row Parameters table (find() singleton).",
+    "Structure: ActionPane + Vertical Tab with multiple TabPages, each containing a FieldsAndFieldGroups group."
+  ],
+  "name": "MyAreaParameters",
+  "dataSources": [
+    {
+      "name": "MyAreaParameters",
+      "kind": "Root",
+      "table": "MyAreaParameters",
+      "insertIfEmpty": true,
+      "fields": [
+        {"dataField": "EnableFeatureA"},
+        {"dataField": "DefaultThreshold"},
+        {"dataField": "NotificationEmail"},
+        {"dataField": "MaxRetryCount"},
+        {"dataField": "ApiBaseUrl"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyAreaParameters",
+    "pattern": "TableOfContents",
+    "patternVersion": "1.1",
+    "style": "TableOfContents",
+    "titleDataSource": "MyAreaParameters",
+    "controls": [
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "dataSource": "MyAreaParameters"
+      },
+      {
+        "_doc": "Vertical tabs on the left. Each TabPage = one functional area.",
+        "name": "TableOfContentsTab",
+        "kind": "Tab",
+        "style": "Vertical",
+        "controls": [
+          {
+            "name": "GeneralPage",
+            "kind": "TabPage",
+            "caption": "@SYS302428",
+            "pattern": "FieldsAndFieldGroups",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "GeneralGroup",
+                "kind": "Group",
+                "controls": [
+                  {"name": "Gen_EnableFeatureA",   "kind": "CheckBox", "dataField": "EnableFeatureA",   "dataSource": "MyAreaParameters"},
+                  {"name": "Gen_DefaultThreshold", "kind": "Real",     "dataField": "DefaultThreshold", "dataSource": "MyAreaParameters"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "NotificationPage",
+            "kind": "TabPage",
+            "caption": "@MyLabels:Notifications",
+            "pattern": "FieldsAndFieldGroups",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "NotificationGroup",
+                "kind": "Group",
+                "controls": [
+                  {"name": "Notif_Email",         "kind": "String",  "dataField": "NotificationEmail", "dataSource": "MyAreaParameters"},
+                  {"name": "Notif_MaxRetryCount", "kind": "Integer", "dataField": "MaxRetryCount",     "dataSource": "MyAreaParameters"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "IntegrationPage",
+            "kind": "TabPage",
+            "caption": "@MyLabels:Integration",
+            "pattern": "FieldsAndFieldGroups",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "IntegrationGroup",
+                "kind": "Group",
+                "controls": [
+                  {"name": "Int_ApiBaseUrl", "kind": "String", "dataField": "ApiBaseUrl", "dataSource": "MyAreaParameters"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

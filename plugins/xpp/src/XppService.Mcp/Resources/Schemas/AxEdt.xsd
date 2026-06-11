@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    elementFormDefault="qualified">
+
+  <!-- Import XML Schema Instance namespace -->
+  <xs:import namespace="http://www.w3.org/2001/XMLSchema-instance" 
+            schemaLocation="http://www.w3.org/2001/XMLSchema-instance"/>
+
+  <!-- Root element -->
+  <xs:element name="AxEdt" type="AxEdtType"/>
+
+  <!-- Base AxEdt complex type -->
+  <xs:complexType name="AxEdtType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Extends" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FormHelp" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ChangeCase" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayHeight" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayLength" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="StringSize" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EnumType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ButtonImage" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowNegative" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HelpText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NoOfDecimalsIsExtensible" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplaceNegative" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CountryRegionCodes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SignDisplay" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PresenceIndicatorAllowed" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeHours" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeMinute" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeSeconds" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReferenceTable" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Scale" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowZero" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="StringSizeIsExtensible" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CollectionLabel" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsObsolete" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PresenceMethod" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Alignment" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ControlClass" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NoOfDecimals" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateDay" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateYear" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateMonth" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateFormat" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Adjustment" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeFormat" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Direction" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RotateSign" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DatabaseStringSize" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ThousandSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoInsSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimezonePreference" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DecimalSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataInteractorFactory" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Style" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FormatMST" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MaxDateLabel" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PresenceClass" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EnforceHierarchy" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ArrayElements" type="ArrayElementsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Relations" type="RelationsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TableReferences" type="TableReferencesType" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+  
+  <!-- EDT subtypes -->
+  <xs:complexType name="AxEdtInt">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtString">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtReal">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtDate">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtDateTime">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtTime">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtUtcDateTime">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtContainer">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtGuid">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtInt64">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="AxEdtEnum">
+    <xs:complexContent>
+      <xs:extension base="AxEdtType"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- ArrayElements container type -->
+  <xs:complexType name="ArrayElementsType">
+    <xs:sequence>
+      <xs:element name="AxEdtArrayElement" type="AxEdtArrayElementType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxEdtArrayElement complex type -->
+  <xs:complexType name="AxEdtArrayElementType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Index" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HelpText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Relations" type="RelationsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TableReferences" type="TableReferencesType" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Relations container type -->
+  <xs:complexType name="RelationsType">
+    <xs:sequence>
+      <xs:element name="AxEdtRelation" type="AxEdtRelationType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  
+  <!-- Add new AxEdtRelation complex type -->
+  <xs:complexType name="AxEdtRelationType">
+    <xs:all>
+      <xs:element name="RelatedField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Table" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- AxEdtRelationFixed complex type - extends AxEdtRelationType -->
+  <xs:complexType name="AxEdtRelationFixed">
+    <xs:complexContent>
+      <xs:extension base="AxEdtRelationType"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- TableReferences container type -->
+  <xs:complexType name="TableReferencesType">
+    <xs:sequence>
+      <xs:element name="AxEdtTableReference" type="AxEdtTableReferenceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  
+  <!-- AxEdtTableReference complex type -->
+  <xs:complexType name="AxEdtTableReferenceType">
+    <xs:all>
+      <xs:element name="RelatedField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Table" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- AxEdtTableReferenceFilter complex type - extends AxEdtTableReferenceType -->
+  <xs:complexType name="AxEdtTableReferenceFilter">
+    <xs:complexContent>
+      <xs:extension base="AxEdtTableReferenceType"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+</xs:schema>

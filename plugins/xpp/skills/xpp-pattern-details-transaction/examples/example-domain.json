@@ -1,0 +1,135 @@
+{
+  "_doc": [
+    "Minimal typed DetailsTransaction request for xpp_create_form.",
+    "DetailsTransaction is the canonical header+lines transactional document — sales order, purchase order, journal.",
+    "Structure: TitleStrip + ActionPane + Panel-tab with three views (HeaderView, LinesView, GridView).",
+    "HeaderView is compulsory even if initially the only one used. Each view's structure differs (HeaderView = FastTabs of fields; LinesView = grid + line-detail; GridView = pure tabular)."
+  ],
+  "name": "MyTransactionDetails",
+  "dataSources": [
+    {
+      "name": "MyTransactionHeader",
+      "kind": "Root",
+      "table": "MyTransactionHeader",
+      "fields": [
+        {"dataField": "TransactionId"},
+        {"dataField": "TransactionDate"},
+        {"dataField": "CustAccount"}
+      ]
+    },
+    {
+      "name": "MyTransactionLine",
+      "kind": "Concrete",
+      "table": "MyTransactionLine",
+      "joinSource": "MyTransactionHeader",
+      "fields": [
+        {"dataField": "LineNum"},
+        {"dataField": "ItemId"},
+        {"dataField": "Qty"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyTransactions",
+    "pattern": "DetailsFormTransaction",
+    "patternVersion": "1.1",
+    "style": "DetailsFormTransaction",
+    "titleDataSource": "MyTransactionHeader",
+    "controls": [
+      {
+        "name": "TitleStrip",
+        "kind": "Group",
+        "pattern": "TitleStrip",
+        "patternVersion": "1.1",
+        "dataSource": "MyTransactionHeader",
+        "controls": [
+          {"name": "Title_TransactionId", "kind": "String", "dataField": "TransactionId", "dataSource": "MyTransactionHeader", "style": "Title"}
+        ]
+      },
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "dataSource": "MyTransactionHeader",
+        "controls": [
+          {"name": "ActionPaneTab", "kind": "ActionPaneTab", "controls": []}
+        ]
+      },
+      {
+        "_doc": "Panel-tab holding the three views. The runtime renders view-switcher UI from this structure.",
+        "name": "PanelTab",
+        "kind": "Tab",
+        "style": "Tabs",
+        "controls": [
+          {
+            "_doc": "HeaderView: FastTabs for header-record edit. Compulsory.",
+            "name": "HeaderView",
+            "kind": "TabPage",
+            "caption": "@SYS9810",
+            "controls": [
+              {
+                "name": "HeaderFastTabs",
+                "kind": "Tab",
+                "style": "FastTabs",
+                "controls": [
+                  {
+                    "name": "GeneralTab",
+                    "kind": "TabPage",
+                    "caption": "@SYS302428",
+                    "controls": [
+                      {
+                        "name": "GeneralGroup",
+                        "kind": "Group",
+                        "controls": [
+                          {"name": "Header_TransactionDate", "kind": "Date",   "dataField": "TransactionDate", "dataSource": "MyTransactionHeader"},
+                          {"name": "Header_CustAccount",     "kind": "String", "dataField": "CustAccount",     "dataSource": "MyTransactionHeader"}
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "_doc": "LinesView: header summary band + lines grid + line-detail editor.",
+            "name": "LinesView",
+            "kind": "TabPage",
+            "caption": "@SYS61146",
+            "controls": [
+              {
+                "name": "LinesGrid",
+                "kind": "Grid",
+                "dataSource": "MyTransactionLine",
+                "style": "Tabular",
+                "controls": [
+                  {"name": "Lines_LineNum", "kind": "Integer", "dataField": "LineNum", "dataSource": "MyTransactionLine"},
+                  {"name": "Lines_ItemId",  "kind": "String",  "dataField": "ItemId",  "dataSource": "MyTransactionLine"},
+                  {"name": "Lines_Qty",     "kind": "Real",    "dataField": "Qty",     "dataSource": "MyTransactionLine"}
+                ]
+              }
+            ]
+          },
+          {
+            "_doc": "GridView: pure tabular view of the header records, for bulk-edit / browse-style interaction.",
+            "name": "GridView",
+            "kind": "TabPage",
+            "caption": "@SYS56683",
+            "controls": [
+              {
+                "name": "HeaderGrid",
+                "kind": "Grid",
+                "dataSource": "MyTransactionHeader",
+                "style": "Tabular",
+                "controls": [
+                  {"name": "GridHdr_TransactionId",   "kind": "String", "dataField": "TransactionId",   "dataSource": "MyTransactionHeader"},
+                  {"name": "GridHdr_TransactionDate", "kind": "Date",   "dataField": "TransactionDate", "dataSource": "MyTransactionHeader"},
+                  {"name": "GridHdr_CustAccount",     "kind": "String", "dataField": "CustAccount",     "dataSource": "MyTransactionHeader"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

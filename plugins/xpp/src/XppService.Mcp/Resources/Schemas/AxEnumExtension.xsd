@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    elementFormDefault="qualified">
+
+  <!-- Define valid property names for enum extensions - ONLY observed values -->
+  <xs:simpleType name="EnumPropertyNameType">
+    <xs:restriction base="xs:string">
+      <!-- Display properties (observed in use) -->
+      <xs:enumeration value="Label"/>
+      
+      <!-- Localization (observed in use) -->
+      <xs:enumeration value="CountryRegionCodes"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Root element -->
+  <xs:element name="AxEnumExtension">
+    <xs:complexType>
+      <xs:sequence>
+        <!-- Extension name - can be any string (e.g., "EnumName.ExtensionName") -->
+        <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+        
+        <!-- New enum values added by this extension -->
+        <xs:element name="EnumValues" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxEnumValue" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:all>
+                    <!-- Enum value name - can be any string -->
+                    <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                    
+                    <!-- Optional properties for the enum value (any order) -->
+                    <xs:element name="Value" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="HelpText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="CountryRegionCodes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="FeatureClass" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                    <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                  </xs:all>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        
+        <!-- Property modifications for the enum itself -->
+        <xs:element name="PropertyModifications" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxPropertyModification" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <!-- Property name from EnumPropertyNameType -->
+                    <xs:element name="Name" type="EnumPropertyNameType" minOccurs="1" maxOccurs="1"/>
+                    <!-- Value is string since different properties have different value types -->
+                    <xs:element name="Value" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        
+        <!-- Modifications to existing enum values -->
+        <xs:element name="ValueModifications" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AxExtensionModification" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <!-- Name of existing enum value to modify -->
+                    <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                    
+                    <!-- Property modifications for this specific enum value -->
+                    <xs:element name="PropertyModifications" minOccurs="0" maxOccurs="1">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="AxPropertyModification" minOccurs="0" maxOccurs="unbounded">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <!-- Property name from EnumPropertyNameType -->
+                                <xs:element name="Name" type="EnumPropertyNameType" minOccurs="1" maxOccurs="1"/>
+                                <!-- Value is string since different properties have different value types -->
+                                <xs:element name="Value" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

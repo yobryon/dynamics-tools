@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+
+  <!-- Root element -->
+  <xs:element name="AxEnum" type="AxEnumType"/>
+
+  <!-- AxEnum complex type -->
+  <xs:complexType name="AxEnumType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="UseEnumValue" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EnumValues" type="EnumValuesType" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="IsExtensible" type="xs:boolean" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AnalysisUsage" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Help" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CountryRegionCodes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsObsolete" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Style" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayLength" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- EnumValues container type -->
+  <xs:complexType name="EnumValuesType">
+    <xs:sequence>
+      <xs:element name="AxEnumValue" type="AxEnumValueType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxEnumValue complex type -->
+  <xs:complexType name="AxEnumValueType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CountryRegionCodes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FeatureClass" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Yes/No enumeration type -->
+  <xs:simpleType name="YesNoType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Yes"/>
+      <xs:enumeration value="No"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

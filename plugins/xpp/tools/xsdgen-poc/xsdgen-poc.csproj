@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+  <Import Project="..\..\src\XppMetadataBridge\BridgeReferences.props" />
+  <!-- POC override: copy referenced assemblies locally so dotnet run can load them -->
+  <Target Name="OverridePrivate" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="$(D365ExtensionPath)\Microsoft.Dynamics.AX.Metadata.dll" />
+      <ReferenceCopyLocalPaths Include="$(D365ExtensionPath)\Microsoft.Dynamics.AX.Metadata.Core.dll" />
+    </ItemGroup>
+  </Target>
+</Project>

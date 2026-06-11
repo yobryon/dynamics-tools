@@ -1,0 +1,61 @@
+{
+  "_doc": [
+    "LEGACY PATTERN — use ONLY for migrating an existing AX 2012 form.",
+    "DO NOT use Task for new forms. Modern equivalents:",
+    "  - Dialog / Drop Dialog for simple confirm/parameter prompts",
+    "  - Simple Details for single-record edit",
+    "  - Details Master for entity-master edit",
+    "This typed example is provided for migration / inspection only.",
+    "Structure: ActionPane + a focused Group with inputs + OK/Cancel command buttons."
+  ],
+  "name": "MyLegacyTaskForm",
+  "dataSources": [
+    {
+      "name": "MyTaskTmp",
+      "kind": "Root",
+      "table": "MyTaskTmp",
+      "insertIfEmpty": true,
+      "fields": [
+        {"dataField": "InputField1"},
+        {"dataField": "InputField2"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyTask",
+    "pattern": "Task",
+    "patternVersion": "1.1",
+    "style": "Task",
+    "controls": [
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "controls": [
+          {
+            "name": "ActionPaneTab",
+            "kind": "ActionPaneTab",
+            "controls": [
+              {
+                "name": "Buttons",
+                "kind": "ButtonGroup",
+                "controls": [
+                  {"name": "OkButton",     "kind": "CommandButton", "command": "OK"},
+                  {"name": "CancelButton", "kind": "CommandButton", "command": "Cancel"}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "_doc": "The task body: a focused group of inputs. Typically <10 fields.",
+        "name": "TaskBody",
+        "kind": "Group",
+        "controls": [
+          {"name": "Body_InputField1", "kind": "String", "dataField": "InputField1", "dataSource": "MyTaskTmp"},
+          {"name": "Body_InputField2", "kind": "String", "dataField": "InputField2", "dataSource": "MyTaskTmp"}
+        ]
+      }
+    ]
+  }
+}

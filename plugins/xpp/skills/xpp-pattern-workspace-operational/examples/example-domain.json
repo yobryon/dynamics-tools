@@ -1,0 +1,86 @@
+{
+  "_doc": [
+    "Minimal typed WorkspaceOperational request for xpp_create_form.",
+    "As of 10.0.25, workspaces scroll VERTICALLY — content sections are stacked, not panoramic.",
+    "Structure: ActionPane + Group with multiple section groups inside. Each section uses one of the workspace sub-patterns (Section Tiles, Section Tabbed List, Section Related Links, etc. — see dynamics-xpp:xpp-form-subpatterns).",
+    "This example shows the bare structural shape: SummaryTiles section + a TabbedList section + a Related Links section. Substitute real tiles, lists, and menu items."
+  ],
+  "name": "MyOperationalWorkspace",
+  "design": {
+    "caption": "@MyLabels:MyWorkspace",
+    "pattern": "WorkspaceOperational",
+    "patternVersion": "1.1",
+    "style": "WorkspaceOperational",
+    "controls": [
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "controls": [
+          {"name": "ActionPaneTab", "kind": "ActionPaneTab", "controls": []}
+        ]
+      },
+      {
+        "_doc": "Sections live under a top-level Group. Order is the display order.",
+        "name": "WorkspacePage",
+        "kind": "Group",
+        "controls": [
+          {
+            "_doc": "Section Tiles: count tiles or KPI tiles. Each tile binds to a separate AxTile + AxMenuItem (Display) — author them first via xpp_create_tile / xpp_create_menuitem.",
+            "name": "SummaryTiles",
+            "kind": "Group",
+            "pattern": "TilesSummary",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "PendingItemsTile",
+                "kind": "MenuFunctionButton",
+                "menuItemName": "MyPendingItemsTile",
+                "menuItemType": "Display",
+                "style": "Link",
+                "otherProperties": {"ButtonDisplay": "TextOnly"}
+              }
+            ]
+          },
+          {
+            "_doc": "Section Tabbed List: multiple list variants, one visible at a time via inner tabs.",
+            "name": "ActiveWorkSection",
+            "kind": "Group",
+            "pattern": "ListPanelTabbed",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "ActiveWorkTab",
+                "kind": "Tab",
+                "style": "FastTabs",
+                "controls": [
+                  {
+                    "name": "PendingTab",
+                    "kind": "TabPage",
+                    "caption": "@MyLabels:Pending",
+                    "controls": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "_doc": "Section Related Links: hyperlinks to related forms via Menu Function Buttons. See dynamics-xpp:xpp-form-subpatterns 'Section Related Links' for the precise button shape (Style=Link, ButtonDisplay=TextOnly, FormControlExtension i:nil, omit MenuItemType for Display).",
+            "name": "SetupAndConfiguration",
+            "kind": "Group",
+            "pattern": "WorkspaceLinks",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "ParametersLink",
+                "kind": "MenuFunctionButton",
+                "menuItemName": "MyAreaParameters",
+                "style": "Link",
+                "otherProperties": {"ButtonDisplay": "TextOnly"}
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

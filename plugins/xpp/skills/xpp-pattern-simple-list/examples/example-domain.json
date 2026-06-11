@@ -1,0 +1,69 @@
+{
+  "_doc": [
+    "Minimal typed SimpleList request for xpp_create_form.",
+    "Substitute MyEntity for your backing table and adjust the field list.",
+    "Structure: ActionPane + CustomFilterGroup (with QuickFilter) + Grid.",
+    "Use for picker dialogs, embedded subforms, small lookup/setup screens."
+  ],
+  "name": "MyEntityList",
+  "dataSources": [
+    {
+      "name": "MyEntity",
+      "kind": "Root",
+      "table": "MyEntity",
+      "insertIfEmpty": false,
+      "fields": [
+        {"dataField": "MyEntityId"},
+        {"dataField": "Name"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyEntities",
+    "pattern": "SimpleList",
+    "patternVersion": "1.1",
+    "style": "SimpleList",
+    "titleDataSource": "MyEntity",
+    "controls": [
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "dataSource": "MyEntity"
+      },
+      {
+        "_doc": "Filter row above the grid. QuickFilterControl is a typed extension with target/default-column properties.",
+        "name": "CustomFilterGroup",
+        "kind": "Group",
+        "pattern": "CustomAndQuickFilters",
+        "patternVersion": "1.1",
+        "style": "CustomFilter",
+        "viewEditMode": "Edit",
+        "controls": [
+          {
+            "name": "QuickFilterControl",
+            "kind": "Other",
+            "formControlExtension": {
+              "name": "QuickFilterControl",
+              "extensionProperties": [
+                {"name": "targetControlName", "type": "String", "value": "Grid"},
+                {"name": "defaultColumnName", "type": "String", "value": "Grid_MyEntityId"},
+                {"name": "placeholderText",   "type": "String"}
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "_doc": "The grid. Columns bind to fields on the data source. <=15 columns per BPC.",
+        "name": "Grid",
+        "kind": "Grid",
+        "dataSource": "MyEntity",
+        "style": "Tabular",
+        "controls": [
+          {"name": "Grid_MyEntityId", "kind": "String", "dataField": "MyEntityId", "dataSource": "MyEntity"},
+          {"name": "Grid_Name",       "kind": "String", "dataField": "Name",       "dataSource": "MyEntity"}
+        ]
+      }
+    ]
+  }
+}

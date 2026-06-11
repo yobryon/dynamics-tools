@@ -1,0 +1,106 @@
+{
+  "_doc": [
+    "Minimal typed SimpleListDetails request for xpp_create_form.",
+    "Substitute the form name, backing table, and field set for your case.",
+    "STRUCTURE (must match MS's example.xml in this folder): the design's direct",
+    "children are PEERS — ActionPane, the NavigationList group (style=SidePanel),",
+    "DetailsHeader (FieldsFieldGroups group), and DetailsTab (FastTabs). There is",
+    "NO 'Details' wrapper group, and SidePanel goes on the NAV group, not the",
+    "details. Nesting DetailsHeader/DetailsTab inside a SidePanel wrapper breaks",
+    "the two-pane layout at RUNTIME even though BP + compile pass (valid XML,",
+    "wrong layout) — verify any new form's render via chrome-mcp.",
+    "_doc keys are ignored by the tool — strip them before sending if your serializer is strict."
+  ],
+  "name": "MyEntitySetupForm",
+  "dataSources": [
+    {
+      "name": "MyEntity",
+      "kind": "Root",
+      "table": "MyEntity",
+      "insertIfEmpty": false,
+      "allowCreate": true,
+      "allowEdit": true,
+      "allowDelete": true,
+      "fields": [
+        {"dataField": "MyEntityId"},
+        {"dataField": "Name"},
+        {"dataField": "Description"},
+        {"dataField": "IsActive"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyEntities",
+    "pattern": "SimpleListDetails",
+    "patternVersion": "1.1",
+    "style": "SimpleListDetails",
+    "titleDataSource": "MyEntity",
+    "controls": [
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "dataSource": "MyEntity",
+        "controls": [
+          {
+            "name": "ActionPaneTab",
+            "kind": "ActionPaneTab",
+            "controls": []
+          }
+        ]
+      },
+      {
+        "_doc": "NavigationList: the left/master pane. style=SidePanel docks it left; heightMode fills the pane. NOTE: this group declares NO Pattern — the SL+D pattern requires its children (Quick Filter + the list Grid) directly; the nav group itself does not take a sub-pattern. (Declaring a bogus one like 'NavigationListSimpleListAndDetails' fails compile with UnableToValidatePattern.)",
+        "name": "NavigationList",
+        "kind": "Group",
+        "style": "SidePanel",
+        "heightMode": "SizeToAvailable",
+        "controls": [
+          {
+            "_doc": "Quick Filter — REQUIRED *direct* child of the nav group (not nested in another group). It's a base AxFormControl (kind=Other, no i:type of its own) whose behavior lives in a FormControlExtension named 'QuickFilterControl': targetControlName = the grid it filters, defaultColumnName = the grid column (named <Grid>_<field>). This exact shape is what the SL+D pattern's required 'Quick Filter' slot expects.",
+            "name": "QuickFilterControl",
+            "kind": "Other",
+            "formControlExtension": {
+              "name": "QuickFilterControl",
+              "extensionProperties": [
+                {"name": "targetControlName", "type": "String", "value": "Grid"},
+                {"name": "defaultColumnName", "type": "String", "value": "Grid_Name"},
+                {"name": "placeholderText",   "type": "String"}
+              ]
+            }
+          },
+          {
+            "_doc": "Master Grid: 2-3 fields per row (ID + Name in this example).",
+            "name": "Grid",
+            "kind": "Grid",
+            "dataSource": "MyEntity",
+            "style": "List",
+            "controls": [
+              {"name": "Grid_MyEntityId", "kind": "String", "dataField": "MyEntityId", "dataSource": "MyEntity"},
+              {"name": "Grid_Name",       "kind": "String", "dataField": "Name",       "dataSource": "MyEntity"}
+            ]
+          }
+        ]
+      },
+      {
+        "_doc": "DetailsHeader: TOP-LEVEL peer (not nested). List fields appear here first in list order, then the rest of the entity's fields.",
+        "name": "DetailsHeader",
+        "kind": "Group",
+        "pattern": "FieldsFieldGroups",
+        "patternVersion": "1.1",
+        "controls": [
+          {"name": "Details_MyEntityId",  "kind": "String",   "dataField": "MyEntityId",  "dataSource": "MyEntity"},
+          {"name": "Details_Name",        "kind": "String",   "dataField": "Name",        "dataSource": "MyEntity"},
+          {"name": "Details_Description", "kind": "String",   "dataField": "Description", "dataSource": "MyEntity"},
+          {"name": "Details_IsActive",    "kind": "CheckBox", "dataField": "IsActive",    "dataSource": "MyEntity"}
+        ]
+      },
+      {
+        "_doc": "DetailsTab: TOP-LEVEL peer. FastTabs for additional detail sections. Empty here; add tab pages for related collections, history, etc.",
+        "name": "DetailsTab",
+        "kind": "Tab",
+        "style": "FastTabs",
+        "controls": []
+      }
+    ]
+  }
+}

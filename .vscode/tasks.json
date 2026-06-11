@@ -1,0 +1,252 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build and Run MCP Server",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				".\\tools\\build-and-run.ps1 -Action run -Target mcp"
+			],
+			"group": "build",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"isBackground": true
+		},
+		{
+			"label": "Test MCP Server",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node test-simple.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run MCP Server"
+		},
+		{
+			"label": "Test Index Performance",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node test-index.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run MCP Server"
+		},
+		{
+			"label": "Quick Performance Test",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node test-quick.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run MCP Server"
+		},
+		{
+			"label": "Test Auto-Index Building",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node test-auto-index.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run MCP Server"
+		},
+		{
+			"label": "Performance Demo - Before/After Index",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node test-enhanced.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run MCP Server"
+		},
+		{
+			"label": "Test Type-Specific Index Building",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node test-type-index.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run MCP Server"
+		},
+		{
+			"label": "Test Optimized Full Index Building",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node test-full-index.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run MCP Server"
+		},
+		{
+			"label": "Build and Run C# Service",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				".\\tools\\build-and-run.ps1 -Action run -Target csharp"
+			],
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "Run C# Service (Debug)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				".\\tools\\build-and-run.ps1 -Action run -Target csharp -Configuration Debug"
+			],
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "First-Time Setup",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				".\\tools\\build-and-run.ps1 -Action setup"
+			],
+			"group": "build",
+			"problemMatcher": []
+		},
+		{
+			"label": "Clean All",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				".\\tools\\build-and-run.ps1 -Action clean"
+			],
+			"group": "build",
+			"problemMatcher": []
+		},
+		{
+			"label": "Full Build and Test",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				".\\tools\\build-and-run.ps1 -Action all -Target both"
+			],
+			"group": "build",
+			"problemMatcher": [
+				"$tsc",
+				"$msCompile"
+			]
+		},
+		{
+			"label": "Test D365 Pattern Discovery",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"node misc/discover-available-patterns.mjs"
+			],
+			"group": "test",
+			"dependsOn": "Build and Run C# Service",
+			"problemMatcher": []
+		},
+		{
+			"label": "Start C# Service for Testing",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"taskkill /f /im D365MetadataService.exe 2>$null; Start-Sleep -Seconds 2; .\\tools\\build-and-run.ps1 -Action run -Target csharp"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Rebuild C# Service",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"taskkill /f /im D365MetadataService.exe 2>$null; Start-Sleep -Seconds 2; .\\tools\\build-and-run.ps1 -Action run -Target csharp"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Rebuild C# Service",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"taskkill /f /im D365MetadataService.exe 2>$null; Start-Sleep -Seconds 2; .\\tools\\build-and-run.ps1 -Action run -Target csharp"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Start Service",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-ExecutionPolicy",
+				"RemoteSigned",
+				"-Command",
+				"taskkill /f /im D365MetadataService.exe 2>$null; Start-Sleep -Seconds 2; .\\tools\\build-and-run.ps1 -Action run -Target csharp"
+			],
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}

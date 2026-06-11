@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "dynamics-xpp": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project", "${CLAUDE_PLUGIN_ROOT}/src/XppService.Mcp/XppService.Mcp.csproj",
+        "-c", "Release",
+        "--no-launch-profile",
+        "--verbosity", "quiet"
+      ]
+    }
+  }
+}

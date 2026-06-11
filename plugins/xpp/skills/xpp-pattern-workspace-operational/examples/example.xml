@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxForm xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="Microsoft.Dynamics.AX.Metadata.V6">
+	<Name>SysGenBlankWorkspaceCanvas</Name>
+	<SourceCode>
+		<Methods xmlns="">
+			<Method>
+				<Name>classDeclaration</Name>
+				<Source><![CDATA[
+[Form]
+public class SysGenBlankWorkspaceCanvas extends FormRun
+{
+    #FormRunConfigurationCommands
+    #SysSystemDefinedButtons
+
+    FormRunConfigurationUserWorkspace   formRunConfigurationUserWorkspace;
+    FormRunConfigurationOwner           formRunConfigurationOwner;
+    FormGroupControl                    rootGroup;
+
+}
+]]></Source>
+			</Method>
+			<Method>
+				<Name>init</Name>
+				<Source><![CDATA[
+    public void init()
+    {
+        formRunConfigurationUserWorkspace = UserWorkspaceCanvasUtility::validateAndProcessFormArgs(this);
+
+        formRunConfigurationUserWorkspace.reread();
+        str caption = formRunConfigurationUserWorkspace.WorkspaceCaption;
+        if (formRunConfigurationUserWorkspace.WorkspaceCaptionLabelId != "")
+        {
+            caption = FormRunConfigurationLabelHelper::getTranslation(formRunConfigurationUserWorkspace.WorkspaceCaptionLabelId, formRunConfigurationUserWorkspace.WorkspaceCaption);
+        }
+        this.form().design().caption(caption);
+        this.dataHelper().Refreshed += eventhandler(this.onRefreshEvent);
+        this.configurationHelper().OnPersonalizationSaved += eventhandler(this.onPersonalizationCommand);
+
+        super();
+        
+        //add a root control group
+        rootGroup = this.design().addControl(FormControlType::Group, this.getUniqueControlName(#UserCreatedWorkspaceCenterGroup));
+        rootGroup.hideIfEmpty(false);
+        rootGroup.widthMode(FormWidth::SizeToAvailable);
+        rootGroup.heightMode(FormHeight::SizeToAvailable);
+        rootGroup.moveControl(PanoramaTab.id(), 0);
+
+        //
+        // This form uses a custom querystring that is required on root navigation (to have an active buffer) 
+        // but doesn't align to deep links. This button will not provide a working link.
+        //
+        FormControl systemDefinedGetALinkButton = this.design().controlName(#SystemDefinedGetALinkButton);
+        Debug::assert(systemDefinedGetALinkButton != null);
+        if (systemDefinedGetALinkButton)
+        {
+            systemDefinedGetALinkButton.visible(false);
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>onPersonalizationCommand</Name>
+				<Source><![CDATA[
+    private void onPersonalizationCommand(FormControlName _controlName, str _property, str _value)
+    {
+        this.updateRecordContext();
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>onRefreshEvent</Name>
+				<Source><![CDATA[
+    private void onRefreshEvent()
+    {
+        this.updateRecordContext();
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>getRecordContext</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Gets the record context of this form.
+    /// </summary>
+    /// <returns>The current record context.</returns>
+    public str getRecordContext()
+    {
+        return formRunConfigurationUserWorkspace.WorkspaceName;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>applyRecordContext</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Applies the specified record context to the form.
+    /// </summary>
+    /// <param name = "_recordContext">The record context.</param>
+    /// <returns>Whether the record context was applied correctly.</returns>
+    public boolean applyRecordContext(str _recordContext)
+    {
+        // handled separately
+        return true;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>run</Name>
+				<Source><![CDATA[
+    public void run()
+    {
+        super();
+
+        this.updateRecordContext();
+        element.args().requestContextQuery('');
+        for(int i=1; i <= TabbedList.controlCount(); i++)
+        {
+            FormTabPageControl pageControl = TabbedList.controlNum(i);
+            if (pageControl.isVisible())
+            {
+                pageControl.activatePage();
+                break;
+            }
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>isUserCreated</Name>
+				<Source><![CDATA[
+    public boolean isUserCreated()
+    {
+        return true;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+		<DataSources xmlns="" />
+		<DataControls xmlns="" />
+		<Members xmlns="" />
+	</SourceCode>
+	<DataSources />
+	<Design>
+		<Caption xmlns="">@SYS67244</Caption>
+		<Pattern xmlns="">WorkspaceOperational</Pattern>
+		<PatternVersion xmlns="">1.1</PatternVersion>
+		<ShowDeleteButton xmlns="">No</ShowDeleteButton>
+		<ShowNewButton xmlns="">No</ShowNewButton>
+		<Style xmlns="">Workspace</Style>
+		<ViewEditMode xmlns="">View</ViewEditMode>
+		<Controls xmlns="">
+			<AxFormControl xmlns=""
+				i:type="AxFormTabControl">
+				<Name>PanoramaTab</Name>
+				<AutoDeclaration>Yes</AutoDeclaration>
+				<ExtendedStyle>tab_simpleFastTab</ExtendedStyle>
+				<Type>Tab</Type>
+				<FormControlExtension
+					i:nil="true" />
+				<Controls>
+					<AxFormControl xmlns=""
+						i:type="AxFormTabPageControl">
+						<Name>SummaryTilesTabPage</Name>
+						<ExtendedStyle>workspace_tileLayout</ExtendedStyle>
+						<Pattern>SectionTiles</Pattern>
+						<PatternVersion>1.1</PatternVersion>
+						<Type>TabPage</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<Controls>
+							<AxFormControl xmlns=""
+								i:type="AxFormMenuFunctionButtonControl">
+								<Name>hiddenTile</Name>
+								<Type>MenuFunctionButton</Type>
+								<Visible>No</Visible>
+								<FormControlExtension>
+									<Name>TileButtonControl</Name>
+									<ExtensionComponents />
+									<ExtensionProperties>
+										<AxFormControlExtensionProperty>
+											<Name>tile</Name>
+											<Type>String</Type>
+											<Value>SysUserInfoPageTile</Value>
+										</AxFormControlExtensionProperty>
+										<AxFormControlExtensionProperty>
+											<Name>tileDisplay</Name>
+											<Type>Enum</Type>
+											<TypeName>TileDisplay</TypeName>
+										</AxFormControlExtensionProperty>
+									</ExtensionProperties>
+								</FormControlExtension>
+								<Text>@SYS10438</Text>
+							</AxFormControl>
+						</Controls>
+						<ArrangeMethod>HorizontalLeft</ArrangeMethod>
+						<Caption>@SYS10488</Caption>
+						<FastTabExpanded>Yes</FastTabExpanded>
+					</AxFormControl>
+					<AxFormControl xmlns=""
+						i:type="AxFormTabPageControl">
+						<Name>ContentSection</Name>
+						<Pattern>SectionTabbedList</Pattern>
+						<PatternVersion>1.1</PatternVersion>
+						<Type>TabPage</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<Controls>
+							<AxFormControl xmlns=""
+								i:type="AxFormTabControl">
+								<Name>TabbedList</Name>
+								<AutoDeclaration>Yes</AutoDeclaration>
+								<Height>500</Height>
+								<HeightMode>Manual</HeightMode>
+								<Type>Tab</Type>
+								<FormControlExtension
+									i:nil="true" />
+								<Controls>
+									<AxFormControl xmlns=""
+										i:type="AxFormTabPageControl">
+										<Name>hiddenTabpage</Name>
+										<Type>TabPage</Type>
+										<Visible>No</Visible>
+										<FormControlExtension
+											i:nil="true" />
+										<Controls>
+											<AxFormControl xmlns=""
+												i:type="AxFormContainerControl">
+												<Name>BatchJobMenuItemFailed</Name>
+												<HeightMode>SizeToAvailable</HeightMode>
+												<Type>Container</Type>
+												<Visible>No</Visible>
+												<WidthMode>SizeToAvailable</WidthMode>
+												<FormControlExtension>
+													<Name>FormPartControl</Name>
+													<ExtensionComponents>
+														<AxFormControlExtensionComponent xmlns=""
+															i:type="AxFormControlExtensionComponentComposite">
+															<Name>dataLinks</Name>
+															<ExtensionComponents />
+														</AxFormControlExtensionComponent>
+													</ExtensionComponents>
+													<ExtensionProperties>
+														<AxFormControlExtensionProperty>
+															<Name>targetName</Name>
+															<Type>String</Type>
+															<Value>BatchJobMenuItemFailed</Value>
+														</AxFormControlExtensionProperty>
+														<AxFormControlExtensionProperty>
+															<Name>autoRefreshInterval</Name>
+															<Type>Int32</Type>
+															<Value>0</Value>
+														</AxFormControlExtensionProperty>
+														<AxFormControlExtensionProperty>
+															<Name>parmRunMode</Name>
+															<Type>Enum</Type>
+															<TypeName>FormPartControlRunMode</TypeName>
+															<Value>Remote</Value>
+														</AxFormControlExtensionProperty>
+													</ExtensionProperties>
+												</FormControlExtension>
+												<Controls />
+											</AxFormControl>
+										</Controls>
+										<Caption>@SYS10400</Caption>
+									</AxFormControl>
+								</Controls>
+								<ArrangeMethod>Vertical</ArrangeMethod>
+								<Style>VerticalTabs</Style>
+							</AxFormControl>
+						</Controls>
+						<Caption>Data Lists</Caption>
+						<FastTabExpanded>Yes</FastTabExpanded>
+					</AxFormControl>
+					<AxFormControl xmlns=""
+						i:type="AxFormTabPageControl">
+						<Name>PowerBITabPage</Name>
+						<Pattern>SectionPowerBI</Pattern>
+						<PatternVersion>1.0</PatternVersion>
+						<Type>TabPage</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<Controls>
+							<AxFormControl>
+								<Name>PowerBIControl</Name>
+								<AutoDeclaration>Yes</AutoDeclaration>
+								<HeightMode>SizeToAvailable</HeightMode>
+								<Visible>No</Visible>
+								<WidthMode>SizeToAvailable</WidthMode>
+								<FormControlExtension>
+									<Name>PowerBIControl</Name>
+									<ExtensionComponents />
+									<ExtensionProperties />
+								</FormControlExtension>
+							</AxFormControl>
+						</Controls>
+						<Caption>@PowerBIIntegration:PowerBISectionCaption</Caption>
+						<FastTabExpanded>Yes</FastTabExpanded>
+					</AxFormControl>
+					<AxFormControl xmlns=""
+						i:type="AxFormTabPageControl">
+						<Name>Links</Name>
+						<Pattern>SectionRelatedLinks</Pattern>
+						<PatternVersion>1.1</PatternVersion>
+						<Type>TabPage</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<Controls>
+							<AxFormControl xmlns=""
+								i:type="AxFormMenuFunctionButtonControl">
+								<Name>hiddenLink</Name>
+								<Type>MenuFunctionButton</Type>
+								<Visible>No</Visible>
+								<FormControlExtension
+									i:nil="true" />
+								<ButtonDisplay>TextOnly</ButtonDisplay>
+								<MenuItemName>SysGenBlankWorkspaceOptions</MenuItemName>
+								<Style>Link</Style>
+							</AxFormControl>
+						</Controls>
+						<ColumnsMode>Fill</ColumnsMode>
+						<Caption>Links</Caption>
+						<FastTabExpanded>Yes</FastTabExpanded>
+					</AxFormControl>
+				</Controls>
+				<Style>FastTabs</Style>
+			</AxFormControl>
+		</Controls>
+	</Design>
+	<Parts />
+</AxForm>

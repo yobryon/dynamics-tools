@@ -1,0 +1,963 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    elementFormDefault="qualified">
+
+  <!-- Root element -->
+  <xs:element name="AxForm" type="AxFormType"/>
+
+  <!-- AxForm complex type -->
+  <xs:complexType name="AxFormType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="SourceCode" type="FormSourceCodeType" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="DataSources" type="DataSourcesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Design" type="DesignType" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Parts" type="PartsType" minOccurs="0" maxOccurs="1"/>
+      <!-- Added missing elements from validation report -->
+      <xs:element name="AllowPreLoading" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSourceChangeGroupMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSourceQuery" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FormTemplate" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="InteractionClass" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsObsolete" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- FormSourceCode complex type -->
+  <xs:complexType name="FormSourceCodeType">
+    <xs:sequence>
+      <xs:element name="Methods" type="MethodsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSources" type="DataSourcesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataControls" type="DataControlsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Members" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- DataControls container type -->
+  <xs:complexType name="DataControlsType">
+    <xs:sequence>
+      <xs:element name="Control" type="ControlType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Control complex type -->
+  <xs:complexType name="ControlType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Type" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Methods" type="MethodsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Methods container type -->
+  <xs:complexType name="MethodsType">
+    <xs:sequence>
+      <xs:element name="Method" type="MethodType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="AxMethod" type="AxMethodType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Method complex type -->
+  <xs:complexType name="MethodType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Source" type="xs:string" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxMethod complex type -->
+  <xs:complexType name="AxMethodType">
+    <xs:all>
+      <xs:element name="Name" type="xs:string" minOccurs="0"/>
+      <xs:element name="Source" type="xs:string" minOccurs="0"/>
+      <xs:element name="Attributes" type="xs:string" minOccurs="0"/>
+      <xs:element name="EventHandlers" type="xs:string" minOccurs="0"/>
+      <xs:element name="IsAbstract" type="YesNoType" minOccurs="0"/>
+      <xs:element name="IsDelegate" type="YesNoType" minOccurs="0"/>
+      <xs:element name="IsDisplay" type="YesNoType" minOccurs="0"/>
+      <xs:element name="IsEdit" type="YesNoType" minOccurs="0"/>
+      <xs:element name="IsExtendedMethod" type="YesNoType" minOccurs="0"/>
+      <xs:element name="IsFinal" type="YesNoType" minOccurs="0"/>
+      <xs:element name="IsStatic" type="YesNoType" minOccurs="0"/>
+      <xs:element name="Parameters" type="xs:string" minOccurs="0"/>
+      <xs:element name="ReturnType" type="xs:string" minOccurs="0"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0"/>
+      <xs:element name="TypeParameters" type="xs:string" minOccurs="0"/>
+      <xs:element name="Variables" type="xs:string" minOccurs="0"/>
+      <xs:element name="Visibility" type="xs:string" minOccurs="0"/>
+      <xs:element name="XMLDocumentation" type="xs:string" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- DataSources container type -->
+  <xs:complexType name="DataSourcesType">
+    <xs:sequence>
+      <xs:element name="AxFormDataSource" type="AxFormDataSourceType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="DataSource" type="DataSourceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- DataSource type (for legacy compatibility) -->
+  <xs:complexType name="DataSourceType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Methods" type="MethodsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Fields" type="FieldsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormDataSource complex type -->
+  <xs:complexType name="AxFormDataSourceType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Table" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="AllowCheck" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowCreate" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowDelete" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowEdit" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoNotify" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoQuery" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoSearch" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CounterField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CrossCompanyAutoQuery" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DelayActive" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Index" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="InsertAtEnd" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="InsertIfEmpty" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="JoinSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LinkType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="OnlyFetchActive" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="OptionalRecordMode" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="StartPosition" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ValidTimeStateAutoQuery" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ValidTimeStateUpdate" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Fields" type="FieldsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReferencedDataSources" type="ReferencedDataSourcesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSourceLinks" type="DataSourceLinksType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DerivedDataSources" type="DerivedDataSourcesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="JoinRelation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSourceQuery" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CopyCallerQuery" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSourceRelation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSourceChangeGroupMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MaxAccessRight" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MaxRecordsToLoad" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Methods" type="MethodsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Fields container type -->
+  <xs:complexType name="FieldsType">
+    <xs:sequence>
+      <xs:element name="AxFormDataSourceField" type="AxFormDataSourceFieldType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Field" type="FieldType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Field type (for legacy compatibility) -->
+  <xs:complexType name="FieldType">
+    <xs:sequence>
+      <xs:element name="DataField" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Methods" type="MethodsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormDataSourceField complex type -->
+  <xs:complexType name="AxFormDataSourceFieldType">
+    <xs:sequence>
+      <xs:element name="DataField" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="AllowAdd" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowEdit" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Enabled" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Mandatory" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Skip" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Visible" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Methods" type="MethodsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ReferencedDataSources type -->
+  <xs:complexType name="ReferencedDataSourcesType">
+    <xs:sequence>
+      <xs:element name="AxFormReferencedDataSource" type="AxFormReferencedDataSourceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormReferencedDataSource type -->
+  <xs:complexType name="AxFormReferencedDataSourceType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Table" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Fields" type="FieldsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="JoinSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LinkType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="JoinRelation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReferencedDataSources" type="ReferencedDataSourcesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="OnlyFetchActive" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DelayActive" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CrossCompanyAutoQuery" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowDeferredLoad" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- DataSourceLinks type -->
+  <xs:complexType name="DataSourceLinksType">
+    <xs:sequence>
+      <xs:element name="AxFormDataSourceRootLink" type="AxFormDataSourceRootLinkType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormDataSourceRootLink complex type -->
+  <xs:complexType name="AxFormDataSourceRootLinkType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- DerivedDataSources type -->
+  <xs:complexType name="DerivedDataSourcesType">
+    <xs:sequence>
+      <xs:element name="AxFormDataSourceDerived" type="AxFormDataSourceDerivedType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormDataSourceDerived complex type -->
+  <xs:complexType name="AxFormDataSourceDerivedType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Table" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Fields" type="FieldsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DerivedDataSources" type="DerivedDataSourcesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReferencedDataSources" type="ReferencedDataSourcesType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Design complex type -->
+  <xs:complexType name="DesignType">
+    <xs:sequence>
+      <xs:element name="AllowUserSetup" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ArrangeMethod" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BackgroundColor" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Caption" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColorScheme" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnsMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DialogSize" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Frame" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HelpText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HideIfEmpty" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HideToolbar" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ImageMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ImageName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ImageResource" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LeftMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MaximizeBox" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MinimizeBox" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Mode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Pattern" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PatternVersion" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RightMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SaveSize" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SetCompany" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowDeleteButton" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowNewButton" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="StatusBarStyle" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Style" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TitleDataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TopMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="UseCaptionFromMenuItem" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ViewEditMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Visible" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="WindowResize" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="WindowType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="WorkflowDataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="WorkflowEnabled" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="WorkflowType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RightMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LeftMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TopMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BottomMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BottomMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlwaysOnTop" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FormTemplate" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Controls" type="ControlsType" minOccurs="0" maxOccurs="1"/>
+      <!-- Added missing Design elements from validation report -->
+      <xs:element name="WidthMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HeightMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Width" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Height" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowFormCompanyChange" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NewRecordAction" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DefaultAction" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LeftMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Left" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TopMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Top" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ArrangeWhen" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Columns" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlignChild" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnSpace" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlignChildren" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnSpaceMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowDocking" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Scrollbars" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Controls container type -->
+  <xs:complexType name="ControlsType">
+    <xs:sequence>
+      <xs:element ref="AxFormControlGroup" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Substitution group for all control types -->
+  <xs:element name="AxFormControlGroup" abstract="true" type="AxFormControlType"/>
+
+  <!-- Base AxFormControl complex type - comprehensive list -->
+  <xs:complexType name="AxFormControlType">
+    <xs:sequence>
+      <!-- Allow Methods to appear before Name for compatibility -->
+      <xs:choice minOccurs="0" maxOccurs="2">
+        <xs:element name="Methods" type="MethodsType"/>
+        <xs:element name="Name" type="xs:string"/>
+      </xs:choice>
+      
+      <!-- Common properties -->
+      <xs:element name="Type" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ElementPosition" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExtendedStyle" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FilterExpression" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      
+      <!-- Added elements that were appearing under AxFormControl but not defined -->
+      <xs:element name="Caption" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Pattern" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PatternVersion" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CopyCallerQuery" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PreviewPartRef" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExtensionComponents" type="ExtensionComponentsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExtensionProperties" type="ExtensionPropertiesType" minOccurs="0" maxOccurs="1"/>
+      
+      <!-- Layout properties -->
+      <xs:element name="AlignChild" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlignChildren" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlignControl" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowEdit" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowUserSetup" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlternateRowShading" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ArrangeMethod" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoDeclaration" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BackgroundColor" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BackStyle" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Bold" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Border" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BottomMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ButtonDisplay" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CacheDataMethod" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ChangeCase" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColorScheme" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Columns" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnsMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnSpace" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ComboType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Command" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConfigurationKey" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CountryRegionCodes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CountryRegionContextField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataGroup" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataMethod" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataRelationPath" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateFormat" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateMonth" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateYear" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DefaultAction" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DefaultButton" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisabledImage" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisabledImageLocation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayHeight" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayLength" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DragDrop" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Enabled" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EnumType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExtendedDataType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FastTabExpanded" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Font" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FontSize" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ForegroundColor" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Frame" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FrameOptionButton" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FramePosition" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="GridLinesStyle" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HasButtons" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HasLines" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Height" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HeightMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HelpText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HideIfEmpty" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HighlightActive" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ImageLocation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ImageMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ImageName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ImageResource" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Italic" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Label" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelAlignment" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelBold" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelFontSize" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelForegroundColor" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <!-- Additional missing control elements from usage report -->
+      <xs:element name="RightMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="VisibleRowsMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FastTabSummary" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayLengthMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="VerticalSpacingMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PanelStyle" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LeftMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TopMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoRefreshData" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BottomMarginMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Alignment" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowNegative" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MaxAccessRight" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EnableFormRef" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnspaceMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowPreLoading" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplaceNegative" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Columnspace" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplaceNegativeMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayHeightMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Red" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Green" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Blue" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MinNoOfDecimals" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MinNoOfDecimalsMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RunMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AcquireFocus" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FormViewOption" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NoOfDecimalsMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DisplayOption" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsLinked" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LookupOnly" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Imagemode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeSeconds" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowFormCompanyChange" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="InteractionClass" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="VisibleColsMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="BackgroundColorRGB" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Red" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Green" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Blue" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="DefaultActionLabel" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ForegroundColorRGB" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Red" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Green" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Blue" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="LabelForegroundColorRGB" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Red" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Green" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Blue" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ActiveForeColorRGB" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Red" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Green" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Blue" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ActiveBackColorRGB" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Red" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Green" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Blue" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="OptionValue" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ViewType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlwaysOnTop" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NewRecordAction" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimezonePreference" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="KeyTip" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LimitTextMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ArrangeWhen" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeMinute" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SingleSelection" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowColLabels" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReplaceOnLookup" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsObsolete" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RotateSign" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Sort" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnHeader" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FilterDataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TypeParameters" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Visibility" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsEdit" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Variables" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="XMLDocumentation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsDelegate" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AxMethod" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsStatic" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PresenceDataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EventHandlers" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsFinal" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReturnType" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="TypeName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="IsExtendedMethod" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Attributes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PresenceDataField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsAbstract" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsDisplay" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HideFirstEntry" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateDay" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="GridLines" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsSystem" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FilterField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HyperLinkMenuItem" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ArrayIndex" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PartLocation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnHeaderButton" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CheckBox" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="HyperLinkDataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MaxDateLabel" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="OptionalRecordControl" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ColumnImages" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PresenceIndicatorAllowed" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoInsSeparator" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowDeferredLoad" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DrawFocusRect" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NeededAccessLevel" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Rows" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SendExternalContext" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RealValue" type="xs:decimal" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MaxRecordsToLoad" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExportAllowed" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ActiveForeColor" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AppendNew" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ActiveBackColor" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelWidthMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <!-- Top 5 missing elements from validation report -->
+      <xs:element name="ColumnSpaceMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowSelAlways" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AlwaysInOverflow" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DecimalSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExportLabel" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <!-- Next batch of missing elements from validation report -->
+      <xs:element name="GroupBy" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TrackSelect" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="OneClickActivate" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelAction" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FormatMST" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="CascadeSelect" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ParentPage" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ClassName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Tab" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="EditLabels" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Location" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Pos" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Row" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Column" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Headerdragdrop" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TwoClickActivate" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SizeWidth" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Step" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateTimeValue" type="xs:dateTime" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoPlay" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AutoArrange" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IMEMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RTLCapable" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Datasources" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ItemAlign" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AllowDocking" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DateValue" type="xs:date" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AssemblyName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Position" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RangeHi" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelHeightMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelHeight" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelPosition" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LabelWidth" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Left" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LeftMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LeftMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LimitText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LinesAtRoot" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="LookupButton" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Mandatory" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MenuItemName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MenuItemType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MultiLine" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MultiSelect" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NeededPermission" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NormalImage" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NormalResource" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="OpenMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Parameters" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PasswordStyle" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Primary" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ProgressType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReferenceField" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ReplacementFieldGroup" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NoOfDecimals" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="FrameType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Items" type="ControlsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TypeName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Field" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Scrollbars" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="NeedsRecord" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Big" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Breakable" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RightMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RowSelect" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SaveRecord" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SearchMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Selection" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowLabel" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowRowLabels" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowShortCut" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowTabs" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ShowZero" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="SignDisplay" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Skip" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Style" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TabAppearance" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TabAutoChange" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TabLayout" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TabPlacement" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Text" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ThousandSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeFormat" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeHours" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeSeparator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TimeZoneIndicator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ToggleButton" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ToggleValue" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Top" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TopMargin" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="TopMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Underline" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="VerticalSpacing" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ViewEditMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Visible" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="VisibleCols" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="VisibleRows" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Width" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="WidthMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      
+      <!-- FormControlExtension should come before Controls -->
+      <xs:element name="FormControlExtension" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Name" type="xs:string" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="ExtensionComponents" type="ExtensionComponentsType" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="ExtensionProperties" type="ExtensionPropertiesType" minOccurs="0" maxOccurs="1"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      
+      <!-- Nested controls properties -->
+      <xs:element name="Controls" type="ControlsType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+    
+    <!-- Attributes -->
+    <xs:attribute name="type" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- Parts container type -->
+  <xs:complexType name="PartsType">
+    <xs:sequence>
+      <xs:element name="AxFormPartReference" type="AxFormPartReferenceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormPartReference complex type -->
+  <xs:complexType name="AxFormPartReferenceType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="PartLocation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PreviewPartRef" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="MenuItemName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSource" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DataSourceRelation" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ElementPosition" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="RunMode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsLinked" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Visible" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ExtensionComponents container type -->
+  <xs:complexType name="ExtensionComponentsType">
+    <xs:sequence>
+      <xs:element name="AxFormControlExtensionComponent" type="AxFormControlExtensionComponentType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormControlExtensionComponent complex type -->
+  <xs:complexType name="AxFormControlExtensionComponentType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="TypeName" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="ComponentType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExtensionComponents" type="ExtensionComponentsType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ExtensionProperties" type="ExtensionPropertiesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="IsSystem" type="YesNoType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ExtensionProperties container type -->
+  <xs:complexType name="ExtensionPropertiesType">
+    <xs:sequence>
+      <xs:element name="AxFormControlExtensionProperty" type="AxFormControlExtensionPropertyType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- AxFormControlExtensionProperty complex type -->
+  <xs:complexType name="AxFormControlExtensionPropertyType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="Type" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="TypeName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Value" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Yes/No enumeration type -->
+  <xs:simpleType name="YesNoType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Yes"/>
+      <xs:enumeration value="No"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Specific Control Type Definitions -->
+  
+  <!-- String Control Type -->
+  <xs:complexType name="AxFormStringControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Button Control Type -->
+  <xs:complexType name="AxFormButtonControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Button Group Control Type -->
+  <xs:complexType name="AxFormButtonGroupControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- CheckBox Control Type -->
+  <xs:complexType name="AxFormCheckBoxControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- ComboBox Control Type -->
+  <xs:complexType name="AxFormComboBoxControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Command Button Control Type -->
+  <xs:complexType name="AxFormCommandButtonControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Date Control Type -->
+  <xs:complexType name="AxFormDateControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- DateTime Control Type -->
+  <xs:complexType name="AxFormDateTimeControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Grid Control Type -->
+  <xs:complexType name="AxFormGridControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Group Control Type -->
+  <xs:complexType name="AxFormGroupControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- HTML Control Type -->
+  <xs:complexType name="AxFormHTMLControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Image Control Type -->
+  <xs:complexType name="AxFormImageControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Int Control Type -->
+  <xs:complexType name="AxFormIntControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Int64 Control Type -->
+  <xs:complexType name="AxFormInt64ControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- ListBox Control Type -->
+  <xs:complexType name="AxFormListBoxControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Menu Button Control Type -->
+  <xs:complexType name="AxFormMenuButtonControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Real Control Type -->
+  <xs:complexType name="AxFormRealControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Reference Group Control Type -->
+  <xs:complexType name="AxFormReferenceGroupControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Segmented Entry Control Type -->
+  <xs:complexType name="AxFormSegmentedEntryControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Static Text Control Type -->
+  <xs:complexType name="AxFormStaticTextControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Tab Control Type -->
+  <xs:complexType name="AxFormTabControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Tab Page Control Type -->
+  <xs:complexType name="AxFormTabPageControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Time Control Type -->
+  <xs:complexType name="AxFormTimeControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <!-- Tree Control Type -->
+  <xs:complexType name="AxFormTreeControlType">
+    <xs:complexContent>
+      <xs:extension base="AxFormControlType"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Substitution Group Elements -->
+  
+  <!-- Base AxFormControl element (abstract) -->
+  <xs:element name="AxFormControl" type="AxFormControlType" substitutionGroup="AxFormControlGroup"/>
+  
+  <!-- Specific control elements that can substitute -->
+  <xs:element name="AxFormStringControl" type="AxFormStringControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormButtonControl" type="AxFormButtonControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormButtonGroupControl" type="AxFormButtonGroupControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormCheckBoxControl" type="AxFormCheckBoxControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormComboBoxControl" type="AxFormComboBoxControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormCommandButtonControl" type="AxFormCommandButtonControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormDateControl" type="AxFormDateControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormDateTimeControl" type="AxFormDateTimeControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormGridControl" type="AxFormGridControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormGroupControl" type="AxFormGroupControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormHTMLControl" type="AxFormHTMLControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormImageControl" type="AxFormImageControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormIntControl" type="AxFormIntControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormInt64Control" type="AxFormInt64ControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormListBoxControl" type="AxFormListBoxControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormMenuButtonControl" type="AxFormMenuButtonControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormRealControl" type="AxFormRealControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormReferenceGroupControl" type="AxFormReferenceGroupControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormSegmentedEntryControl" type="AxFormSegmentedEntryControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormStaticTextControl" type="AxFormStaticTextControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormTabControl" type="AxFormTabControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormTabPageControl" type="AxFormTabPageControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormTimeControl" type="AxFormTimeControlType" substitutionGroup="AxFormControlGroup"/>
+  <xs:element name="AxFormTreeControl" type="AxFormTreeControlType" substitutionGroup="AxFormControlGroup"/>
+</xs:schema>

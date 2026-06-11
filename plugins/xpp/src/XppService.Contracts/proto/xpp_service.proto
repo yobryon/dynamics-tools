@@ -1,0 +1,968 @@
+syntax = "proto3";
+
+package xpp.v1;
+
+// C# namespace mirrors the project's RootNamespace so generated code
+// drops cleanly into the contracts assembly.
+option csharp_namespace = "Xpp.Service.Contracts.V1";
+
+// =============================================================================
+// XppService — public surface of the v2 stack.
+//
+// One long-running service instance per machine. Multiple MCP / CLI / agent
+// clients connect concurrently over named pipes. The contract is intentionally
+// stream-heavy so result sets are never artificially capped and the client
+// can cancel mid-flight.
+//
+// This file is the single source of truth: both the C# server (Grpc.Tools)
+// and the TypeScript stub (ts-proto) generate from it. Adding new RPCs is a
+// .proto edit + regen; we never define request/response shapes anywhere else.
+// =============================================================================
+
+service XppService {
+
+  // -------------------------------------------------------------------------
+  // Health / lifecycle. Cheap calls that don't touch the metadata bridge.
+  // -------------------------------------------------------------------------
+
+  rpc Ping(PingRequest) returns (PingResponse);
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+
+  // Enumerate every model the bridge can see, with metadata + the
+  // is_binary flag set on modules visible only through the runtime
+  // (compiled-DLL) provider. Cache-first: served from the indexed
+  // models table without touching the bridge.
+  rpc ListModules(ListModulesRequest) returns (stream ModuleInfo);
+
+  // -------------------------------------------------------------------------
+  // Index maintenance. Server-streaming so clients see progress as it
+  // happens rather than waiting for a many-second walk to finish in one
+  // response.
+  // -------------------------------------------------------------------------
+
+  rpc RebuildIndex(RebuildRequest) returns (stream IndexProgress);
+
+  // -------------------------------------------------------------------------
+  // Search. All results stream so the client can cancel early and so we
+  // never have to artificially cap response sizes.
+  // -------------------------------------------------------------------------
+
+  // Exact-name lookup (X++ names are case-insensitive; matched accordingly).
+  rpc FindObject(FindObjectRequest) returns (stream ObjectMatch);
+
+  // Wildcard pattern over object names. Patterns use * and ? (translated
+  // to SQL LIKE under the hood).
+  rpc SearchByPattern(PatternRequest) returns (stream ObjectMatch);
+
+  // FTS5 free-text over indexed method source bodies. The query is passed
+  // through to SQLite's MATCH so callers can use FTS5 syntax (phrase
+  // queries with quotes, NEAR/OR/AND operators, prefix * suffixes).
+  rpc SearchCode(CodeSearchRequest) returns (stream CodeSearchHit);
+
+  // Semantic (vector) search over method bodies or label values, backed by
+  // the locally-computed embeddings in the sqlite-vec store. mode=semantic is
+  // pure nearest-neighbour; mode=hybrid fuses the vector ranking with the FTS5
+  // bm25 ranking via Reciprocal Rank Fusion so exact-token and
+  // conceptual matches both surface. Streams ranked hits, best first.
+  rpc SearchSemantic(SemanticSearchRequest) returns (stream SemanticSearchHit);
+
+  // Find what references a given object. Returns the union of:
+  //   - declared structural edges from the refs table (extends, datasource,
+  //     relation, etc.)
+  //   - method bodies whose tokenized source mentions the target name
+  //     (when include_source_mentions = true)
+  rpc FindReferences(ReferenceQuery) returns (stream ReferenceHit);
+
+  // -------------------------------------------------------------------------
+  // Inspection. Reads back details about a specific object.
+  // -------------------------------------------------------------------------
+
+  // Return every method on an object as a lightweight summary (no source).
+  // Cache-first: if the object's methods are already indexed, served from
+  // SQLite. If not, falls back to a live bridge call. Either way the wire
+  // shape is identical.
+  rpc GetObjectMethods(ObjectRef) returns (stream MethodSummary);
+
+  // Return the X++ source for one specific method on an object. Cache-first
+  // with the same bridge fallback as GetObjectMethods. Errors with NotFound
+  // when neither the cache nor the bridge can resolve the request.
+  rpc GetMethodSource(GetMethodSourceRequest) returns (MethodSource);
+
+  // -------------------------------------------------------------------------
+  // Authoring (write surface). All authoring goes through full-AOT-XML
+  // round-trip: read the XML, edit it, write it back. This matches the
+  // contract Microsoft picked for their own AI integration and aligns with
+  // what the metadata provider's serializer round-trips natively.
+  // -------------------------------------------------------------------------
+
+  // Read an AOT object as its full on-disk XML representation. Foundation
+  // for the write surface; every authoring flow starts here. The xml field
+  // is what UpdateObject expects on the way back in.
+  rpc GetObjectXml(ObjectRef) returns (ObjectXml);
+
+  // Create a new AOT object from caller-supplied XML. Fails if an object
+  // with that name already exists in the target model. Model placement is
+  // explicit - this RPC will not auto-select a destination model.
+  rpc CreateObject(WriteObjectRequest) returns (WriteObjectResponse);
+
+  // Overwrite an existing AOT object's XML. Caller is expected to GetObjectXml
+  // first and post back the edited envelope. The XML must be the full object,
+  // not a patch.
+  rpc UpdateObject(WriteObjectRequest) returns (WriteObjectResponse);
+
+  // -------------------------------------------------------------------------
+  // Domain-model authoring surface. Higher-level than the raw XML round-trip
+  // — caller supplies a typed JSON shape (defined in XppService.Domain),
+  // service dispatches by ax_type to a mapper that produces AOT XML and
+  // ships to the existing CreateObject / UpdateObject path. Three RPCs
+  // cover every domain type forever (no proto edits per new type).
+  // -------------------------------------------------------------------------
+
+  // Create a new AOT object from a domain JSON payload.
+  rpc CreateDomainObject(CreateDomainObjectRequest) returns (WriteObjectResponse);
+
+  // Apply a partial domain update to an existing AOT object. Merge-patch
+  // semantics: caller sends the partial domain shape, mapper diffs against
+  // current state and produces the full updated XML.
+  rpc PatchDomainObject(PatchDomainObjectRequest) returns (WriteObjectResponse);
+
+  // Read an AOT object as its domain JSON representation. Equivalent to
+  // GetObjectXml but the response carries the typed domain shape instead
+  // of raw XML. With outline/at_path/depth set, returns a structural
+  // skeleton or a path-rooted subtree instead of the whole object —
+  // path-addressable navigation for large objects (forms, wide tables).
+  rpc GetDomainObject(GetDomainObjectRequest) returns (GetDomainObjectResponse);
+
+  // Locate nodes within one object's domain tree by attribute, returning
+  // their addressable paths (breadcrumbs) — the "locate" primitive that
+  // pairs with GetDomainObject(at_path) "zoom" and PatchDomainObjectByPath
+  // "edit". Scoped to a single object, so unary (not a corpus stream).
+  rpc FindInObject(FindInObjectRequest) returns (FindInObjectResponse);
+
+  // Surgical edit at one path — the "edit" primitive completing the
+  // orient/locate/zoom/edit loop. The service reads current state, splices the
+  // caller's value at at_path (set / merge / append / remove), and sends only
+  // the changed top-level branch through the existing metaclass patch. The
+  // caller transmits just {at_path, op, value}; untouched siblings are never
+  // resent in either direction.
+  rpc PatchDomainObjectByPath(PatchByPathRequest) returns (WriteObjectResponse);
+
+  // Evict an object's row from the search index (cascades to its methods /
+  // references / FTS). Called by the delete path after the on-disk files are
+  // removed, so find/search stop returning the just-deleted object immediately
+  // rather than only after the next full sweep. Deletes the row outright (the
+  // caller already knows the object is gone) -- no bridge re-read.
+  rpc EvictObjectFromIndex(EvictObjectRequest) returns (EvictObjectResponse);
+
+  // -------------------------------------------------------------------------
+  // Label resource file CRUD. The .label.txt resource files routinely run to
+  // hundreds of KB and thousands of entries; reading them whole into an
+  // agent's context to do a regex grep is wasteful and edit-then-write
+  // attempts hit the Read-before-Edit constraint. These RPCs collapse the
+  // workflow:
+  //
+  //   xpp_label_search   regex over one or more label files (CI)
+  //   xpp_label_read     pull a single label by id
+  //   xpp_label_add      append one or many labels (batch)
+  //   xpp_label_update   change one or many label values/descriptions
+  //   xpp_label_delete   remove one or many labels
+  //
+  // All five resolve the on-disk resource file via the AxLabelFile metadata
+  // object's RelativeUriInModelStore — callers identify labels by their
+  // logical (label_file_id, language, label_id) triple, not by file path.
+  // -------------------------------------------------------------------------
+
+  rpc LabelSearch(LabelSearchRequest) returns (stream LabelMatch);
+  rpc LabelRead(LabelReadRequest) returns (LabelEntry);
+  rpc LabelAdd(LabelMutationRequest) returns (LabelMutationResponse);
+  rpc LabelUpdate(LabelMutationRequest) returns (LabelMutationResponse);
+  rpc LabelDelete(LabelDeleteRequest) returns (LabelMutationResponse);
+
+  // -------------------------------------------------------------------------
+  // Best Practice checks. Wraps the F&O server's xppbp.exe (lives in
+  // <PackagesLocalDirectory>/bin/) — the exact tool MSBuild + the VS
+  // extension use under the hood. Caller supplies module + model + a list
+  // of element filters; service collapses everything into one xppbp
+  // invocation, parses the XML diagnostics, and streams them back.
+  //
+  // Scope resolution (changeset / project / explicit) lives client-side
+  // in the MCP since it owns .dynamics-xpp/{config,changeset}.json + the
+  // .rnrproj. By the time the request reaches the server the scope has
+  // already been resolved to a concrete element list.
+  // -------------------------------------------------------------------------
+
+  rpc RunBestPracticeChecks(BpCheckRequest) returns (stream BpDiagnostic);
+
+  // -------------------------------------------------------------------------
+  // Compile
+  //
+  // Drives the VS-equivalent project build by shelling out to devenv.com on
+  // the .rnrproj's owning .sln. Replicates the user's "Build" experience
+  // exactly: metadata validation -> xppc (via xppcAgent) -> xppbp ->
+  // CopyReferences -> app pool recycling. Returns the parsed XML diagnostics
+  // plus a stdout-derived summary so callers can show timing and pass/fail.
+  // -------------------------------------------------------------------------
+
+  rpc Compile(CompileRequest) returns (CompileResponse);
+}
+
+// =============================================================================
+// Search messages
+// =============================================================================
+
+// Canonical identifier for an indexed object. Used in nearly every search
+// response so clients can do follow-up RPCs (or future inspection RPCs).
+message ObjectRef {
+  string name = 1;
+  string ax_type = 2;
+  string model = 3;
+  // "disk" or "runtime". Runtime-sourced objects live in binary-only
+  // modules (no on-disk XML); their X++ source bodies are unavailable
+  // and write tools will reject any mutation. Empty for legacy / pre-v5
+  // index rows (treat as "disk").
+  string source = 4;
+}
+
+message ObjectMatch {
+  ObjectRef ref = 1;
+}
+
+message FindObjectRequest {
+  string name = 1;
+  string ax_type = 2;  // optional filter
+  string model = 3;    // optional filter
+}
+
+message PatternRequest {
+  // Pattern with * and ? wildcards. Empty or "*" returns everything matching
+  // the type/model filter, which is also how you browse a model.
+  string pattern = 1;
+  string ax_type = 2;  // optional filter
+  string model = 3;    // optional filter
+
+  // 0 means "no client-side cap" — server still streams, client just
+  // reads until the producer is done.
+  int32 limit = 4;
+}
+
+message CodeSearchRequest {
+  // FTS5 MATCH expression. Common cases are a single identifier
+  // ("validateWrite") or a phrase query ("\"select forUpdate\"").
+  string query = 1;
+  int32 limit = 2;
+}
+
+message CodeSearchHit {
+  ObjectRef object = 1;
+  string method_name = 2;
+  // Highlighted snippet from FTS5 (snippet() function) — the matching
+  // tokens are wrapped in <mark>…</mark>. Useful for direct display.
+  string snippet = 3;
+}
+
+message SemanticSearchRequest {
+  // Natural-language or code-fragment query. Embedded locally with the
+  // Qwen3-Embedding instruction prefix before the nearest-neighbour lookup.
+  string query = 1;
+  // Max hits to stream. 0 defaults to 20 (vector search is ranked, so an
+  // unbounded stream is rarely what the caller wants).
+  int32 limit = 2;
+  // What to search: "method" (default) searches method source bodies;
+  // "label" searches label values.
+  string kind = 3;
+  // "hybrid" (default) fuses vector + FTS rankings; "semantic" is pure
+  // vector nearest-neighbour. Unknown values are treated as hybrid.
+  string mode = 4;
+}
+
+message SemanticSearchHit {
+  // "method" or "label" — which corpus this hit came from.
+  string kind = 1;
+  // For methods: the owning object + method_name are set. For labels: object
+  // is the owning AxLabelFile and label_key is set.
+  ObjectRef object = 2;
+  string method_name = 3;
+  string label_key = 4;
+  // A short excerpt of the matched content (method source head / label value)
+  // for direct display without a follow-up fetch.
+  string text = 5;
+  // Fused relevance score (higher = better). For mode=semantic this is the
+  // cosine similarity (1 - distance); for hybrid it's the RRF score.
+  double score = 6;
+  // Raw vector distance (lower = closer). Zero when the hit surfaced only
+  // through the FTS arm of a hybrid query.
+  double distance = 7;
+}
+
+message ReferenceQuery {
+  string target_name = 1;
+  string target_type = 2;            // optional
+  bool include_source_mentions = 3;  // also tokenize-search method bodies
+  int32 limit = 4;
+
+  // Field-level filter. When set, target_name is interpreted as the table
+  // name and target_field as the field name; query reads field_refs
+  // (schema v2). Leave empty for object-level lookup against the refs table.
+  string target_field = 5;
+
+  // Label reverse-lookup filter. When set (in either form: 'SYS:123' or
+  // bare '123'), target_name and target_field are ignored and the query
+  // reads label_refs (schema v3). The '@' prefix is optional; the server
+  // strips it.
+  string target_label = 6;
+}
+
+message ReferenceHit {
+  // The object doing the referencing.
+  ObjectRef source = 1;
+
+  // 'extends' | 'implements' | 'datasource' | 'tableRelation' |
+  // 'tableExtends' | 'edtExtends' | 'viewQuery' | 'source-mention' |
+  // 'formDataSourceField' | 'formControlField' | 'queryRange' |
+  // 'queryOrderBy' | 'queryGroupBy' | 'queryHaving' | 'queryField' |
+  // 'entityMappedField' | 'tableRelationConstraint' |
+  // 'tableRelationConstraintRelated' (Tier B).
+  string kind = 2;
+
+  // Extra disambiguation when available: relation name for tableRelation,
+  // datasource name for datasource, method name for source-mention.
+  string context = 3;
+
+  // For field-level hits: the source-side member name (control name,
+  // range name, data-source field name, relation constraint name).
+  string source_member = 4;
+}
+
+// =============================================================================
+// Inspection messages
+// =============================================================================
+
+message MethodSummary {
+  string name = 1;
+  string signature = 2;
+  bool is_static = 3;
+  string access_level = 4;   // "public" / "protected" / "private" / "" if unknown
+  string return_type = 5;
+  int32 line_count = 6;
+}
+
+message GetMethodSourceRequest {
+  ObjectRef object = 1;
+  string method_name = 2;
+}
+
+message MethodSource {
+  string name = 1;
+  string signature = 2;
+  bool is_static = 3;
+  string access_level = 4;
+  string return_type = 5;
+  string source_code = 6;
+  // True when served from the SQLite cache; false when fetched live from
+  // the bridge. Useful for diagnostics; functionally the source is the
+  // source.
+  bool from_cache = 7;
+}
+
+// =============================================================================
+// Authoring messages
+// =============================================================================
+
+message ObjectXml {
+  ObjectRef ref = 1;
+  // The full AOT XML for the object, UTF-8 encoded as a single string. Edit
+  // this and post it back via UpdateObject to persist changes.
+  string xml = 2;
+}
+
+message WriteObjectRequest {
+  // The AOT type and target model. The object's Name comes from the XML
+  // root - we don't accept a separate Name parameter because mismatching
+  // it against the XML is a silent corruption hazard.
+  string ax_type = 1;
+  string model = 2;
+  string xml = 3;
+}
+
+message WriteObjectResponse {
+  // Echoes the type/model and the Name resolved from the XML, so the
+  // caller can verify the write landed against the expected identity.
+  string ax_type = 1;
+  string model = 2;
+  string name = 3;
+
+  // Drift warnings — request properties that were specified with a
+  // non-null value but didn't survive the bridge round-trip into the
+  // on-disk XML. Empty array means the mapper round-tripped everything
+  // the caller asked for. Set only for typed CreateDomainObject /
+  // PatchDomainObject; the raw-XML CreateObject / UpdateObject paths
+  // leave this empty.
+  repeated DriftWarning drift = 4;
+
+  // Form-pattern conformance — set only for AxForm writes that declare a
+  // known pattern. The bridge auto-stamps every pattern-prescribed
+  // property (so the form is conformant-by-construction) and returns the
+  // residual it can't fix: structural `missing` controls and negative
+  // `mismatches`. Unset for non-form writes and forms with no declared
+  // pattern.
+  PatternConformance pattern_conformance = 5;
+
+  // Preview of a dry-run surgical edit (PatchDomainObjectByPath with dry_run):
+  // the spliced subtree at the edit site, so the caller can confirm the change
+  // landed where intended BEFORE committing. Empty for committed writes.
+  string preview_json = 6;
+}
+
+// Result of running MS's form-pattern engine over an AxForm write.
+message PatternConformance {
+  string pattern = 1;
+  string version = 2;
+  // True iff there are no `missing` slots and no residual `mismatches`
+  // (after auto-stamping). Author `overrides` don't affect ok — the form
+  // conforms once stamped.
+  bool ok = 3;
+  // Required pattern slots with no control present. Can't be auto-fixed
+  // (you can't default a control into existence) — the agent must author
+  // these. This is the high-signal authoring gap.
+  repeated PatternMissing missing = 4;
+  // Properties the author EXPLICITLY set that the pattern overrode to its
+  // prescribed value. Informational: surfaced so the agent knows their
+  // value lost to the pattern. Default-origin stamps are omitted (silent).
+  repeated PatternOverride overrides = 5;
+  // Residual property violations the auto-stamp can't resolve (negative /
+  // non-Equals constraints). Usually empty.
+  repeated PatternMismatch mismatches = 6;
+  // Set only in the rare case the form declares a pattern with no shipped
+  // definition — conformance couldn't be analyzed. Empty otherwise.
+  string note = 7;
+}
+
+message PatternMissing {
+  string path = 1;       // friendly-name breadcrumb to the parent slot
+  string expected = 2;   // "Quick Filter (QuickFilterControl)"
+}
+
+message PatternOverride {
+  string path = 1;
+  string control = 2;
+  string property = 3;        // camelCase
+  string requested = 4;       // the value the author sent
+  string pattern_value = 5;   // what it was stamped to
+}
+
+message PatternMismatch {
+  string path = 1;
+  string control = 2;
+  string property = 3;        // camelCase
+  string actual = 4;
+  string pattern_value = 5;
+  string op = 6;              // the violated operator, e.g. "Not"
+}
+
+// A single dropped property from typed Create/Patch round-trip. The
+// request_path is dotted/indexed JSON-pointer-style (e.g.
+// "fields[2].label", "design.controls[0].controls[1].name") and
+// request_value is the JSON-encoded leaf value the caller sent.
+message DriftWarning {
+  string request_path = 1;
+  string request_value = 2;
+}
+
+// =============================================================================
+// Label messages
+// =============================================================================
+
+// Logical address of a single label inside a label file.
+message LabelRef {
+  // LabelFileId — the file's logical name without language suffix
+  // (e.g. "CONL" for CONL.en-US.label.txt). NOT the AxLabelFile artifact Name.
+  string label_file_id = 1;
+  // BCP-47 language tag matching the resource file suffix (e.g. "en-US").
+  string language = 2;
+  // The per-label key inside the resource file (the text before '=').
+  string label_id = 3;
+}
+
+// One label as it exists in a resource file.
+message LabelEntry {
+  LabelRef ref = 1;
+  string value = 2;
+  // Translator description (the text after ' ;' on the second line).
+  // Empty when the entry has no description line.
+  string description = 3;
+}
+
+// A label entry being added or updated. Same shape as LabelEntry but
+// without the ref split — label_file_id + language come from the request
+// envelope and label_id + value + description are the per-row payload.
+message LabelEntryInput {
+  string label_id = 1;
+  string value = 2;
+  string description = 3;
+}
+
+message LabelSearchRequest {
+  // One or more LabelFileIds to search. Required and non-empty —
+  // "search everywhere" is what the indexed labels search is for; this
+  // tool exists for targeted, post-write-fresh regex against specific
+  // files.
+  repeated string label_file_ids = 1;
+  // BCP-47 language tag. Empty defaults to "en-US".
+  string language = 2;
+  // .NET regex pattern. Always evaluated case-insensitively.
+  string pattern = 3;
+  // When true, the pattern is also tested against each entry's
+  // description (in addition to its value).
+  bool match_description = 4;
+  // Optional cap on results streamed. 0 = no cap.
+  int32 limit = 5;
+}
+
+message LabelMatch {
+  LabelEntry entry = 1;
+  // 1-based line number where the LabelId=value line sits in the resource
+  // file. Useful when displaying matches to the user.
+  int32 line = 2;
+  // "value" or "description" — which field the regex hit. When both, the
+  // value match takes precedence.
+  string matched_in = 3;
+}
+
+message LabelReadRequest {
+  LabelRef ref = 1;
+}
+
+message LabelMutationRequest {
+  // The label file being mutated. All entries in `labels` apply to this
+  // (label_file_id, language) pair — single round-trip, one file write.
+  string label_file_id = 1;
+  string language = 2;
+  repeated LabelEntryInput labels = 3;
+}
+
+message LabelDeleteRequest {
+  string label_file_id = 1;
+  string language = 2;
+  repeated string label_ids = 3;
+}
+
+message LabelMutationResponse {
+  string label_file_id = 1;
+  string language = 2;
+  // The number of entries affected. For add: count inserted. For update:
+  // count modified (existing rows). For delete: count removed.
+  int32 affected = 3;
+  // The resolved on-disk path of the resource file, for diagnostic
+  // purposes. Clients should NOT use this to do their own reads/writes —
+  // the path can shift across models and Tier 1 vs split-path setups.
+  string resource_path = 4;
+}
+
+// =============================================================================
+// Best Practice messages
+// =============================================================================
+
+message BpCheckRequest {
+  // F&O module — xppbp.exe's -module argument. The MCP client typically
+  // defaults this to the model name when the project config doesn't
+  // declare a separate moduleName.
+  string module = 1;
+  // F&O model — xppbp.exe's -model argument. Comes from the active
+  // .dynamics-xpp project (the .rnrproj's <Model>).
+  string model = 2;
+  // The (ax_type, name) pairs to check. Empty list means "no scope"; the
+  // server rejects with InvalidArgument rather than running -all on the
+  // whole model implicitly. Use the project-scope MCP-side resolution to
+  // explicitly enumerate when that's what the caller wants.
+  repeated BpElementFilter elements = 3;
+  // Optional list of BP rule monikers (e.g. "BPLocalVariableNotUsed").
+  // When set, xppbp.exe runs only these rules via -rules=, both shrinking
+  // its output and skipping evaluator work for everything else. Empty
+  // means "run every rule".
+  repeated string only_rules = 4;
+  // Optional list of monikers to escalate Warning -> Error via xppbp's
+  // -TreatWarningsAsErrors. Sourced from the project config so the
+  // caller doesn't have to repeat the policy on each call.
+  repeated string escalate_rules = 5;
+}
+
+message BpElementFilter {
+  // The AOT type (AxClass, AxTable, AxForm, AxEdt, ...). Server maps this
+  // to xppbp's CLI tokens (class, table, form, edt, ...).
+  string ax_type = 1;
+  // Element name. "*" is accepted by xppbp and means "every element of
+  // this type in the model" — useful for type-scoped sweeps.
+  string name = 2;
+}
+
+message BpDiagnostic {
+  // "BestPractices" | "StaticCodeAnalysis" | etc. — straight from
+  // xppbp's <DiagnosticType>.
+  string diagnostic_type = 1;
+  // "Info" | "Warning" | "Error" | "Fatal" — from xppbp's <Severity>.
+  string severity = 2;
+  // dynamics:// URI for the affected element/sub-element. Useful for
+  // pin-pointing inside the agent's output.
+  string path = 3;
+  // The AOT type of the containing element.
+  string element_type = 4;
+  // Rule identifier (the "moniker"), e.g. "BPXmlDocNoDocumentationComments".
+  string moniker = 5;
+  // 1-based source location. Zero when xppbp didn't report a location
+  // for this diagnostic.
+  int32 line = 6;
+  int32 column = 7;
+  int32 end_line = 8;
+  int32 end_column = 9;
+  // Human-readable message; usually starts with the moniker.
+  string message = 10;
+}
+
+// =============================================================================
+// Messages
+// =============================================================================
+
+message PingRequest {
+  // Optional client-supplied token echoed back in the response so the
+  // caller can sanity-check the round trip without ambiguity.
+  string echo = 1;
+}
+
+message PingResponse {
+  string echo = 1;
+
+  // ISO 8601 UTC timestamp when the service handled the call. Useful for
+  // clients to detect clock skew and confirm the response is fresh.
+  string server_time = 2;
+
+  // Service version string. Format is loosely "v2.<minor>.<patch>"; the
+  // service treats this as opaque from the client's perspective.
+  string service_version = 3;
+}
+
+message RebuildRequest {
+  // Optional whitelist of model names to index. Empty list = all models.
+  // Useful both for testing (target one small custom model) and for
+  // incremental rebuilds driven by file-system events.
+  repeated string models_filter = 1;
+
+  // Maximum number of objects to process during phase 2 (methods + refs).
+  // 0 = no cap (production default). Smoke tests use a small value to
+  // bound runtime; partial rebuilds can use it for incremental progress.
+  // The inventory pass (phase 1) always processes every object in scope
+  // regardless of this value.
+  int32 max_objects_phase2 = 2;
+
+  // When true, phase 2 skips objects that already have rows in the
+  // methods table (i.e. previously processed and bearing methods).
+  // Combined with max_objects_phase2, lets a sequence of rebuild calls
+  // advance through the corpus N objects at a time. Objects that
+  // genuinely have no methods (label files, security privileges, etc.)
+  // still get re-visited on each pass; a proper "visited" marker is a
+  // follow-up.
+  bool incremental = 3;
+}
+
+message IndexProgress {
+  // Free-form phase label: "starting" | "models" | "objects" | "complete".
+  // New phases get added as the indexer learns to do more work; clients
+  // should treat unknown values as informational.
+  string phase = 1;
+
+  // The model the indexer is currently working on, when applicable.
+  // Empty during phases that don't iterate models.
+  string current_model = 2;
+
+  // The AxType currently being enumerated, when applicable. Empty in
+  // most phases because objects of all types within a model are batched.
+  string current_ax_type = 3;
+
+  // Running count of objects committed so far. Monotonic non-decreasing
+  // across a single RebuildIndex call.
+  int64 objects_seen = 4;
+
+  // Optional best-effort total, when we have one. Zero when unknown
+  // (we never reach a knowable total mid-walk; the indexer doesn't
+  // pre-count).
+  int64 objects_total_estimate = 5;
+
+  // True on the final message of the stream and only then.
+  bool done = 6;
+
+  // Human-readable status line — useful for logs and UIs that don't
+  // want to parse the structured fields.
+  string message = 7;
+}
+
+message ListModulesRequest {
+  // Optional substring filter on module name (case-insensitive). Empty
+  // means no filter — return all.
+  string name_filter = 1;
+  // When true, return only modules marked is_binary=true (binary-only
+  // modules, no on-disk XML).
+  bool binary_only = 2;
+}
+
+message ModuleInfo {
+  string name = 1;
+  string display_name = 2;
+  string publisher = 3;
+  string version = 4;
+  string layer = 5;
+  bool is_custom = 6;
+  // True when the module is visible only through the runtime provider
+  // (compiled DLLs in bin\), i.e. ships with no on-disk XML. X++ source
+  // is unavailable for objects in binary modules; metadata shape and
+  // structural references are.
+  bool is_binary = 7;
+  repeated string dependencies = 8;
+}
+
+message StatusRequest {}
+
+message StatusResponse {
+  // Whether the bridge child process is currently alive and reachable.
+  bool bridge_healthy = 1;
+
+  // True once the initial filesystem walk has populated the object index.
+  bool index_ready = 2;
+
+  // Approximate object count in the index (zero until the first build).
+  int64 object_count = 3;
+
+  // ISO 8601 timestamp of the most recent index update, empty if never.
+  string last_index_update = 4;
+
+  // Number of indexed methods (phase 2 output). Zero until phase 2 runs.
+  int64 method_count = 5;
+
+  // Number of indexed structural references (phase 2 output).
+  int64 reference_count = 6;
+
+  // Number of indexed label entries (phase 2 output from AxLabelFile objects).
+  int64 label_count = 7;
+
+  // High-level lifecycle phase the service-managed indexer is in:
+  //   "uninitialized" — empty database; bootstrap walk has not started yet
+  //   "warming"        — first-time bootstrap is in flight
+  //   "sweeping"       — incremental delta sweep is in flight
+  //   "ready"          — populated, no sweep running
+  string index_state = 8;
+
+  // True if a phase 1 + phase 2 walk is currently running.
+  bool sweep_in_progress = 9;
+
+  // ISO 8601 timestamp of the last incremental sweep completion. Empty if
+  // no sweep has finished yet.
+  string last_sweep_at = 10;
+
+  // ISO 8601 timestamp of the last full (forced) rebuild completion. Empty
+  // when only incremental sweeps have run.
+  string last_full_scan_at = 11;
+
+  // Semantic-search subsystem state:
+  //   "disabled"    — turned off in config
+  //   "absent"      — model not yet downloaded
+  //   "downloading" — self-acquisition in flight
+  //   "ready"       — model loaded; vector search available
+  //   "error"       — acquisition failed (FTS still works)
+  //   "unavailable" — model ready but sqlite-vec extension missing
+  string embedding_state = 12;
+
+  // Count of embeddings computed for the current model version (methods +
+  // labels). Climbs from 0 to embedding_total as the background embedder
+  // works through the corpus.
+  int64 embedding_count = 13;
+
+  // Total rows eligible for embedding (non-empty methods + labels) — the
+  // denominator for embedding_count. Zero until the index is populated.
+  int64 embedding_total = 14;
+
+  // Whether the full-text method-body index (xpp_search_code) is populated.
+  // True when the FTS index has indexed documents, OR there are no methods
+  // to index yet. False means xpp_search_code will return 0 for EVERYTHING
+  // regardless of query — a zero result is "index not ready", not "no
+  // matches". Distinct from index_state because the FTS index can be empty
+  // (e.g. mid-rebuild, or a stranded rebuild) while index_state reads
+  // "ready". Self-healed on startup, but surfaced so a transient empty
+  // window is never mistaken for a clean miss.
+  bool code_search_ready = 15;
+}
+
+// =============================================================================
+// Compile messages
+// =============================================================================
+
+message CompileRequest {
+  // Absolute path to the .sln devenv.com builds. Resolved client-side from
+  // the rnrproj's ancestor directories.
+  string sln_path = 1;
+  // Absolute path to the .rnrproj passed to /Project. Same project the agent
+  // is operating against.
+  string rnrproj_path = 2;
+  // MSBuild configuration in the "Config|Platform" form devenv expects
+  // (e.g. "Debug|Any CPU"). Defaults to "Debug|Any CPU" client-side.
+  string configuration = 3;
+  // F&O module name. Used to locate BuildProjectResult.xml under
+  // <PackagesLocalDirectory>/<Module>/.
+  string module = 4;
+  // When true, pass /Rebuild instead of /Build. Forces fresh XML output
+  // even when nothing changed; slower (full BPC pass).
+  bool rebuild = 5;
+}
+
+message CompileResponse {
+  // true when devenv reported "succeeded, 0 failed"; false otherwise.
+  bool success = 1;
+  // true when devenv said the project was up-to-date and skipped real work
+  // (no fresh diagnostics XML was written).
+  bool up_to_date = 2;
+  // Per-step millisecond timings parsed from devenv stdout. Any step that
+  // didn't fire stays zero.
+  CompileTiming timing = 3;
+  // Diagnostics from the build result XMLs. Aggregated across
+  // BuildModelResult.xml + BuildModelResult.err.xml (metadata validation
+  // errors / pattern violations / etc.) and BuildProjectResult.xml +
+  // BuildProjectResult.err.xml (X++ compilation diagnostics). Empty when
+  // up_to_date is true. Reuses BpDiagnostic — VS Build's diagnostic format
+  // is identical to xppbp's (DiagnosticType field distinguishes Generation
+  // vs BestPractices vs FormPatternValidation vs ExternalReference etc.).
+  repeated BpDiagnostic diagnostics = 4;
+  // The "succeeded / failed / skipped" line from devenv's summary, verbatim.
+  string summary_line = 5;
+  // True when devenv recycled the W3SVC app pool after a successful build.
+  bool app_pool_recycled = 6;
+  // Total wall-clock milliseconds from process spawn to exit.
+  int64 elapsed_ms = 7;
+
+  // Raw devenv stdout. Populated only when success=false AND no structured
+  // diagnostics surfaced — the fallback so the agent has SOMETHING to
+  // reason about rather than an empty diagnostics array masquerading as
+  // "no problems found." Truncated at 64KB on the wire.
+  string raw_stdout = 8;
+  // Raw devenv stderr; same conditions as raw_stdout. Truncated at 64KB.
+  string raw_stderr = 9;
+  // Skill keys the agent should consider loading based on diagnostics
+  // content. E.g. when a diagnostic mentions `per pattern 'Section
+  // Related Links'`, we attach "dynamics-xpp:xpp-form-subpatterns". The
+  // agent is most loadable on skill content at the moment a tool's
+  // response surfaces something unexpected; this field exploits that
+  // window. Empty when no diagnostic hits a known skill-linkage rule.
+  repeated string relevant_skills = 10;
+}
+
+message CompileTiming {
+  int64 metadata_validation_ms = 1;
+  int64 xpp_compile_ms = 2;
+  int64 bp_check_ms = 3;
+  int64 app_pool_recycle_ms = 4;
+}
+
+// =============================================================================
+// Domain-object messages — see XppService.Domain for the per-type JSON shapes
+// =============================================================================
+
+message CreateDomainObjectRequest {
+  // The AOT type being created — drives mapper dispatch (e.g. "AxEnum").
+  string ax_type = 1;
+  // F&O model the new object belongs to.
+  string model = 2;
+  // Serialized domain record (e.g. CreateEnumRequest as JSON).
+  string domain_json = 3;
+}
+
+message PatchDomainObjectRequest {
+  // The AOT type being patched.
+  string ax_type = 1;
+  // F&O model.
+  string model = 2;
+  // The existing object's Name. The mapper resolves it, applies the patch,
+  // and re-emits the full XML.
+  string name = 3;
+  // Partial domain shape; null fields mean "leave unchanged."
+  string patch_json = 4;
+}
+
+message GetDomainObjectRequest {
+  string ax_type = 1;
+  string name = 2;
+  // --- Path-addressable navigation (all optional; absent = whole-object read).
+  // Return the structural skeleton (collections + structural singletons as
+  // nodes; scalars and all-primitive property-groups elided) instead of full
+  // content.
+  bool outline = 3;
+  // Root the read at this path, e.g. "/design/controls/Grid". Applies to both
+  // outline and full reads. Empty = the whole object.
+  string at_path = 4;
+  // Outline depth below the root. 0 (default) = collection COUNTS only (the
+  // compact orient); 1 = list members one level; 2 = members + sub-counts.
+  // Structural singletons (design/sourceCode) are transparent, so depth=0 still
+  // shows their counts inline. Ignored unless outline is set. (An at_path rooted
+  // directly at a collection lists its members even at depth 0.)
+  int32 depth = 5;
+}
+
+message GetDomainObjectResponse {
+  string ax_type = 1;
+  string name = 2;
+  // Serialized domain shape. Full content, an outline skeleton, or a
+  // path-rooted subtree depending on the request.
+  string domain_json = 3;
+  // Echo of the resolved root path ("" for whole-object reads).
+  string at_path = 4;
+  // True when domain_json is an outline skeleton rather than full content.
+  bool is_outline = 5;
+}
+
+message FindInObjectRequest {
+  string ax_type = 1;
+  string name = 2;
+  // Case-insensitive substring matched against each node's identity
+  // (name/dataField/field/mapField). Empty = match any node (rely on filters).
+  string query = 3;
+  // Optional attribute filters, matched case-insensitively against the node's
+  // own scalar properties. Empty = unconstrained.
+  string kind = 4;          // control kind / field type / relationship type
+  string data_source = 5;
+  string data_field = 6;
+}
+
+message FindInObjectResponse {
+  string ax_type = 1;
+  string name = 2;
+  // JSON array of matches: { path, kind?, name?, dataSource?, dataField?,
+  // caption? }. Paths are addressable by GetDomainObject(at_path) /
+  // PatchDomainObjectByPath(at_path).
+  string matches_json = 3;
+}
+
+message PatchByPathRequest {
+  string ax_type = 1;
+  string model = 2;
+  string name = 3;
+  // The target path. For set/merge/remove it is the node itself
+  // ("/design/controls/Grid/controls/Grid_Name"); for append it is the
+  // collection to add to ("/design/controls/Grid/controls").
+  string at_path = 4;
+  // set | merge | append | remove.
+  //  set    — replace the node at at_path with value
+  //  merge  — overlay value's top-level properties onto the object at at_path
+  //  append — add value (an object) to the collection at at_path
+  //  remove — delete the node at at_path (value ignored)
+  string op = 5;
+  // JSON value to splice (object). Empty/omitted for remove.
+  string value_json = 6;
+  // Preview only: splice + return the edited subtree in preview_json WITHOUT
+  // writing. Lets the caller confirm the edit before committing.
+  bool dry_run = 7;
+}
+
+message EvictObjectRequest {
+  string ax_type = 1;
+  string name = 2;
+  string model = 3;
+}
+
+message EvictObjectResponse {
+  bool evicted = 1;
+}

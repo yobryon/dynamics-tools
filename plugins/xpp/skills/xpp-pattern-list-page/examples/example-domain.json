@@ -1,0 +1,90 @@
+{
+  "_doc": [
+    "Minimal typed ListPage request for xpp_create_form.",
+    "ListPage is the heavyweight 'browse this transactional table' pattern — entry point for business records.",
+    "Structure: ActionPane (with ActionPaneTab + ButtonGroups) + CustomFilterGroup + Grid + (optional FactBox panel).",
+    "Consider whether DetailsMaster (now subsumes ListPage 1:1 cases) fits better — see the pattern skill's decision rules."
+  ],
+  "name": "MyEntityListPage",
+  "dataSources": [
+    {
+      "name": "MyEntity",
+      "kind": "Root",
+      "table": "MyEntity",
+      "insertIfEmpty": false,
+      "fields": [
+        {"dataField": "MyEntityId"},
+        {"dataField": "Name"},
+        {"dataField": "Status"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyEntities",
+    "pattern": "ListPage",
+    "patternVersion": "1.1",
+    "style": "ListPage",
+    "titleDataSource": "MyEntity",
+    "controls": [
+      {
+        "_doc": "ListPage action pane is heavier than SimpleList — tabs group related buttons.",
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "dataSource": "MyEntity",
+        "controls": [
+          {
+            "name": "ActionPaneTab",
+            "kind": "ActionPaneTab",
+            "caption": "@SYS70295",
+            "controls": [
+              {
+                "name": "ButtonGroupNew",
+                "kind": "ButtonGroup",
+                "controls": [
+                  {
+                    "name": "NewButton",
+                    "kind": "CommandButton",
+                    "command": "New"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "CustomFilterGroup",
+        "kind": "Group",
+        "pattern": "CustomAndQuickFilters",
+        "patternVersion": "1.1",
+        "style": "CustomFilter",
+        "viewEditMode": "Edit",
+        "controls": [
+          {
+            "name": "QuickFilterControl",
+            "kind": "Other",
+            "formControlExtension": {
+              "name": "QuickFilterControl",
+              "extensionProperties": [
+                {"name": "targetControlName", "type": "String", "value": "Grid"},
+                {"name": "defaultColumnName", "type": "String", "value": "Grid_Name"},
+                {"name": "placeholderText",   "type": "String"}
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "Grid",
+        "kind": "Grid",
+        "dataSource": "MyEntity",
+        "style": "Tabular",
+        "controls": [
+          {"name": "Grid_MyEntityId", "kind": "String",   "dataField": "MyEntityId", "dataSource": "MyEntity"},
+          {"name": "Grid_Name",       "kind": "String",   "dataField": "Name",       "dataSource": "MyEntity"},
+          {"name": "Grid_Status",     "kind": "ComboBox", "dataField": "Status",     "dataSource": "MyEntity"}
+        ]
+      }
+    ]
+  }
+}

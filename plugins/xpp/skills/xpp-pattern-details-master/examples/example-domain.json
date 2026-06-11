@@ -1,0 +1,109 @@
+{
+  "_doc": [
+    "Minimal typed DetailsMaster request for xpp_create_form.",
+    "DetailsMaster is the entity-master pattern: single record, full edit surface, no lines.",
+    "In modern F&O, DetailsMaster ALSO subsumes the old ListPage when there's a 1:1 list-to-details correspondence.",
+    "Structure: TitleStrip (header band) + ActionPane + DetailsHeader (compact identifying fields) + DetailsTab (FastTabs for the rest)."
+  ],
+  "name": "MyEntityDetails",
+  "dataSources": [
+    {
+      "name": "MyEntity",
+      "kind": "Root",
+      "table": "MyEntity",
+      "fields": [
+        {"dataField": "MyEntityId"},
+        {"dataField": "Name"},
+        {"dataField": "Description"},
+        {"dataField": "Address"},
+        {"dataField": "Phone"}
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:MyEntity",
+    "pattern": "DetailsFormMaster",
+    "patternVersion": "1.1",
+    "style": "DetailsFormMaster",
+    "titleDataSource": "MyEntity",
+    "viewEditMode": "Auto",
+    "controls": [
+      {
+        "_doc": "Title strip: persistent header band showing the record's identifying fields.",
+        "name": "TitleStrip",
+        "kind": "Group",
+        "pattern": "TitleStrip",
+        "patternVersion": "1.1",
+        "dataSource": "MyEntity",
+        "controls": [
+          {"name": "Title_MyEntityId", "kind": "String", "dataField": "MyEntityId", "dataSource": "MyEntity", "style": "Title"},
+          {"name": "Title_Name",       "kind": "String", "dataField": "Name",       "dataSource": "MyEntity", "style": "Subtitle"}
+        ]
+      },
+      {
+        "name": "ActionPane",
+        "kind": "ActionPane",
+        "dataSource": "MyEntity",
+        "controls": [
+          {
+            "name": "ActionPaneTab",
+            "kind": "ActionPaneTab",
+            "controls": []
+          }
+        ]
+      },
+      {
+        "_doc": "DetailsHeader: compact identifying-fields band above the FastTabs. List/master fields go here in order.",
+        "name": "DetailsHeader",
+        "kind": "Group",
+        "pattern": "FieldsAndFieldGroups",
+        "patternVersion": "1.1",
+        "controls": [
+          {"name": "Header_MyEntityId", "kind": "String", "dataField": "MyEntityId", "dataSource": "MyEntity"},
+          {"name": "Header_Name",       "kind": "String", "dataField": "Name",       "dataSource": "MyEntity"}
+        ]
+      },
+      {
+        "_doc": "DetailsTab: FastTabs for the rest of the entity's fields. Group related fields per FastTab.",
+        "name": "DetailsTab",
+        "kind": "Tab",
+        "style": "FastTabs",
+        "controls": [
+          {
+            "name": "GeneralTab",
+            "kind": "TabPage",
+            "caption": "@SYS302428",
+            "pattern": "FieldsAndFieldGroups",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "GeneralGroup",
+                "kind": "Group",
+                "controls": [
+                  {"name": "General_Description", "kind": "String", "dataField": "Description", "dataSource": "MyEntity"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ContactTab",
+            "kind": "TabPage",
+            "caption": "@MyLabels:Contact",
+            "pattern": "FieldsAndFieldGroups",
+            "patternVersion": "1.1",
+            "controls": [
+              {
+                "name": "ContactGroup",
+                "kind": "Group",
+                "controls": [
+                  {"name": "Contact_Address", "kind": "String", "dataField": "Address", "dataSource": "MyEntity"},
+                  {"name": "Contact_Phone",   "kind": "String", "dataField": "Phone",   "dataSource": "MyEntity"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

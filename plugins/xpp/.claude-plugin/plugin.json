@@ -1,0 +1,21 @@
+{
+  "name": "dynamics-xpp",
+  "version": "0.1.0",
+  "description": "Author and inspect Microsoft Dynamics 365 Finance & Operations X++ code through the dynamics-xpp server. Bundles per-AOT-type and per-form-pattern skills plus the X++ language primer.",
+  "author": {
+    "name": "Bryon Williams"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/aot-edit-nudge.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
