@@ -82,6 +82,16 @@ namespace XppMetadataBridge.Metadata.Domain
             ("widthMode","WidthMode",false), ("heightMode","HeightMode",false),
             ("configurationKey","ConfigurationKey",false), ("tags","Tags",false),
             ("dataField","DataField",false), ("dataSource","DataSource",false), ("label","Label",false),
+            // Value-binding cluster: what a control binds to / renders as its value.
+            // All already round-trip through otherProperties (EmitOther on read,
+            // ApplyTyped on write); promoted to first-class purely for discoverability
+            // so an agent reading a form with a display column sees `dataMethod` rather
+            // than a buried PascalCase bag key. Emitted Raw (not Bool) to preserve the
+            // bag's existing string form ("Yes"/"No") and stay safe against tri-state
+            // enums the XSD flattens to YesNoType.
+            ("dataMethod","DataMethod",false), ("cacheDataMethod","CacheDataMethod",false),
+            ("extendedDataType","ExtendedDataType",false), ("enumType","EnumType",false),
+            ("arrayIndex","ArrayIndex",false),
             ("caption","Caption",false), ("style","Style",false), ("viewEditMode","ViewEditMode",false),
             ("text","Text",false), ("command","Command",false), ("menuItemName","MenuItemName",false),
             ("menuItemType","MenuItemType",false),

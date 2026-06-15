@@ -474,6 +474,22 @@ own:
   "Customer". Per MS UX guidelines.
 - **Data-bound controls need both `dataSource` and `dataField`.**
   Omitting either produces a control that exists but doesn't bind.
+- **Display/edit-method columns bind via `dataMethod`, not `dataField`.**
+  A grid column whose value comes from a `display` (or `edit`) method on
+  the data source's table sets `dataSource` + `dataMethod` (the method
+  name, no parens) and **no `dataField`**:
+  ```json
+  {"name": "EventAge", "kind": "String", "dataSource": "MyDs", "dataMethod": "displayAge"}
+  ```
+  Pair with `cacheDataMethod: "No"` when the value is volatile (must
+  recompute each render). The value-binding cluster — `dataMethod`,
+  `cacheDataMethod`, `extendedDataType` and `enumType` (for **unbound**
+  controls — those with a `dataSource` but no underlying table field,
+  e.g. a workspace page filter), and `arrayIndex` (field-array element)
+  — are all first-class fields on the control. Author them through
+  `xpp_create_form` / `xpp_patch_form`; don't hand-write control XML into
+  `xpp_update_object` — the on-disk element order is contract-significant
+  and a misordered element is silently dropped on the round-trip.
 - **Don't redeclare controls or data sources in the X++ class.** The
   form runtime adds them to the class scope automatically. See
   `dynamics-xpp:xpp-class`.
