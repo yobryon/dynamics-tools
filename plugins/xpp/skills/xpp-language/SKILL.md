@@ -315,6 +315,20 @@ sending anything to the metadata layer. If validation fails you get
 back a structured response with the exact line/column/element of every
 violation — fix and retry without burning a full round-trip.
 
+> **Element ORDER is contract-significant — keep the get→edit→update
+> shape.** MS's on-disk deserializer reads each element at its declared
+> position and *silently skips* any it can't place — so an element you
+> hand-author out of order is dropped with no error, and the write still
+> reports success. This is why you start from `xpp_get_object_xml`
+> (already in canonical order) and edit in place rather than constructing
+> elements from scratch. When a write does lose content this way, the
+> response now flags it: `droppedProperties` (and a matching
+> `sideEffectWarnings` line) lists each element that was in your XML but
+> didn't survive the round-trip, with its path and value — treat a
+> non-empty `droppedProperties` as "my edit didn't fully land." For
+> supported types the typed `xpp_create_*` / `xpp_patch_*` tools sidestep
+> ordering entirely; prefer them.
+
 #### Pattern: create a new object
 
 ```

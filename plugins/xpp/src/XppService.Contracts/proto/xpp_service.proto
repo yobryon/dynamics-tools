@@ -391,12 +391,12 @@ message WriteObjectResponse {
   string model = 2;
   string name = 3;
 
-  // Drift warnings — request properties that were specified with a
-  // non-null value but didn't survive the bridge round-trip into the
-  // on-disk XML. Empty array means the mapper round-tripped everything
-  // the caller asked for. Set only for typed CreateDomainObject /
-  // PatchDomainObject; the raw-XML CreateObject / UpdateObject paths
-  // leave this empty.
+  // Drift warnings — request content specified with a non-null/meaningful
+  // value that didn't survive the bridge round-trip into the on-disk XML.
+  // Empty means everything the caller asked for round-tripped. Populated by
+  // BOTH the typed CreateDomainObject / PatchDomainObject paths (mapper drops)
+  // AND the raw CreateObject / UpdateObject paths (MS FromFile drops — e.g.
+  // out-of-order or unrecognized elements). Advisory only; the write succeeds.
   repeated DriftWarning drift = 4;
 
   // Form-pattern conformance — set only for AxForm writes that declare a

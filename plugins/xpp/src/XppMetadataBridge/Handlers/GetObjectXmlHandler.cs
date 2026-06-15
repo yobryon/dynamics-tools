@@ -119,7 +119,7 @@ namespace XppMetadataBridge.Handlers
                 ["AxQueryComposite"] = "AxQuery",
             };
 
-        private static string SerializeToXml(object metadataObject)
+        internal static string SerializeToXml(object metadataObject)
         {
             // Every AOT type implements INamedObject (it's what carries the
             // Name primary key). Cast there directly; if the caller hands us

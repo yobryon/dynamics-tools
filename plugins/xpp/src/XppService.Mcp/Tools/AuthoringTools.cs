@@ -112,16 +112,7 @@ public sealed class AuthoringTools
         }
         catch (Exception ex) { warnings.Add($"scm op failed: {ex.Message}"); }
 
-        return JsonSerializer.Serialize(new
-        {
-            axType = resp.AxType,
-            model = resp.Model,
-            name = resp.Name,
-            created = true,
-            addedToProject = sideEffects.AddedToProject,
-            changesetUpdated = sideEffects.ChangesetUpdated,
-            sideEffectWarnings = warnings.ToArray()
-        });
+        return BuildWriteJson(resp, "created", sideEffects.AddedToProject, sideEffects.ChangesetUpdated, warnings);
     }
 
     [McpServerTool(Name = "xpp_update_object"), Description(
@@ -180,16 +171,42 @@ public sealed class AuthoringTools
         var sideEffects = await RecordPostWriteAsync(axType, resp.Name, createdHere: false, ct).ConfigureAwait(false);
         var updateWarnings = sideEffects.Warnings.ToList();
         if (scmPreWarning != null) updateWarnings.Insert(0, $"scm: {scmPreWarning}");
-        return JsonSerializer.Serialize(new
+        return BuildWriteJson(resp, "updated", sideEffects.AddedToProject, sideEffects.ChangesetUpdated, updateWarnings);
+    }
+
+    /// <summary>
+    /// Build the JSON response for a raw create / update. Echoes the identity
+    /// envelope and folds any bridge-detected round-trip drops into both the
+    /// human-readable <c>sideEffectWarnings</c> (with round-trip-specific
+    /// wording — these are FromFile drops, not typed-mapper gaps) and a
+    /// structured <c>droppedProperties</c> block. <paramref name="verb"/> is
+    /// "created" or "updated".
+    /// </summary>
+    private static string BuildWriteJson(
+        WriteObjectResponse resp, string verb, bool addedToProject, bool changesetUpdated, List<string> warnings)
+    {
+        foreach (var d in resp.Drift)
+            warnings.Add(
+                $"dropped on round-trip: '{d.RequestPath}' (value='{d.RequestValue}') was present in the " +
+                "posted XML but did not survive the bridge's deserialize/serialize — most often an " +
+                "out-of-order or unrecognized element (the on-disk element order is contract-significant, " +
+                "and MS's deserializer silently skips elements it can't place). Diff your XML against a " +
+                "clean xpp_get_object_xml of this object; for supported types the typed xpp_create_/xpp_patch_ " +
+                "tools avoid this entirely.");
+
+        var payload = new Dictionary<string, object?>
         {
-            axType = resp.AxType,
-            model = resp.Model,
-            name = resp.Name,
-            updated = true,
-            addedToProject = sideEffects.AddedToProject,
-            changesetUpdated = sideEffects.ChangesetUpdated,
-            sideEffectWarnings = updateWarnings.ToArray()
-        });
+            ["axType"] = resp.AxType,
+            ["model"] = resp.Model,
+            ["name"] = resp.Name,
+            [verb] = true,
+            ["addedToProject"] = addedToProject,
+            ["changesetUpdated"] = changesetUpdated,
+            ["sideEffectWarnings"] = warnings.ToArray(),
+        };
+        if (resp.Drift.Count > 0)
+            payload["droppedProperties"] = resp.Drift.Select(d => new { path = d.RequestPath, value = d.RequestValue }).ToArray();
+        return JsonSerializer.Serialize(payload);
     }
 
     // -- private helpers -----------------------------------------------------

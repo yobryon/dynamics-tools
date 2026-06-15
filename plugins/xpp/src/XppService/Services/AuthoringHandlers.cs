@@ -72,10 +72,10 @@ public sealed partial class PingGrpcService
     public override async Task<WriteObjectResponse> CreateObject(WriteObjectRequest request, ServerCallContext context)
     {
         ValidateWriteRequest(request);
-        string name;
+        BridgeRawWriteResult result;
         try
         {
-            name = await _bridgeClient.CreateObjectAsync(
+            result = await _bridgeClient.CreateObjectAsync(
                 request.AxType, request.Model, request.Xml, context.CancellationToken).ConfigureAwait(false);
         }
         catch (BridgeRpcException ex)
@@ -87,24 +87,19 @@ public sealed partial class PingGrpcService
         // raw XML write surface previously skipped this, so the index (incl.
         // reference edges) went stale until the next sweep — which then made a
         // subsequent delete refuse on references the write had just removed.
-        await _lifecycle.EnqueueWriteThroughAsync(request.Model, request.AxType, name, context.CancellationToken)
+        await _lifecycle.EnqueueWriteThroughAsync(request.Model, request.AxType, result.Name, context.CancellationToken)
             .ConfigureAwait(false);
 
-        return new WriteObjectResponse
-        {
-            AxType = request.AxType,
-            Model = request.Model,
-            Name = name
-        };
+        return BuildWriteResponse(request, result);
     }
 
     public override async Task<WriteObjectResponse> UpdateObject(WriteObjectRequest request, ServerCallContext context)
     {
         ValidateWriteRequest(request);
-        string name;
+        BridgeRawWriteResult result;
         try
         {
-            name = await _bridgeClient.UpdateObjectAsync(
+            result = await _bridgeClient.UpdateObjectAsync(
                 request.AxType, request.Model, request.Xml, context.CancellationToken).ConfigureAwait(false);
         }
         catch (BridgeRpcException ex)
@@ -116,15 +111,29 @@ public sealed partial class PingGrpcService
         // reference edges) so a follow-up read/delete sees the new state. Raw
         // XML updates previously left the index stale: a reference removed by
         // this update still showed as an inbound ref and blocked a delete.
-        await _lifecycle.EnqueueWriteThroughAsync(request.Model, request.AxType, name, context.CancellationToken)
+        await _lifecycle.EnqueueWriteThroughAsync(request.Model, request.AxType, result.Name, context.CancellationToken)
             .ConfigureAwait(false);
 
-        return new WriteObjectResponse
+        return BuildWriteResponse(request, result);
+    }
+
+    /// <summary>
+    /// Shared response builder for the raw create / update paths. Echoes the
+    /// identity envelope and forwards any round-trip drops the bridge detected
+    /// into the shared <c>drift</c> channel — the same field the typed path
+    /// uses, so the MCP renders raw-write drops identically.
+    /// </summary>
+    private static WriteObjectResponse BuildWriteResponse(WriteObjectRequest request, BridgeRawWriteResult result)
+    {
+        var resp = new WriteObjectResponse
         {
             AxType = request.AxType,
             Model = request.Model,
-            Name = name
+            Name = result.Name
         };
+        foreach (var d in result.Drops)
+            resp.Drift.Add(new DriftWarning { RequestPath = d.Path, RequestValue = d.Value });
+        return resp;
     }
 
     private static void ValidateWriteRequest(WriteObjectRequest request)

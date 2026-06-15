@@ -12,6 +12,17 @@ namespace Xpp.Service.Bridge;
 public sealed record BridgeDomainWriteResult(string Name, JsonNode? Conformance);
 
 /// <summary>
+/// Result of a raw-XML createObject / updateObject: the resolved Name plus any
+/// round-trip drops the bridge detected — elements the caller's posted XML
+/// carried that MS's FromFile silently discarded (typically out-of-order or
+/// unrecognized). Drops are advisory; the write itself succeeded.
+/// </summary>
+public sealed record BridgeRawWriteResult(string Name, IReadOnlyList<RawWriteDrop> Drops);
+
+/// <summary>One dropped element: its breadcrumb path and the value the caller sent.</summary>
+public readonly record struct RawWriteDrop(string Path, string Value);
+
+/// <summary>
 /// Typed facade over BridgeProcess. Every bridge RPC gets a method here that
 /// takes/returns concrete records, so callers (indexer, search, etc.) never
 /// see JsonNode in their code paths.
@@ -243,22 +254,43 @@ public sealed class BridgeClient
     /// exists. Returns the Name resolved from the deserialized XML so the
     /// caller can verify identity.
     /// </summary>
-    public async Task<string> CreateObjectAsync(string axType, string model, string xml, CancellationToken ct)
+    public async Task<BridgeRawWriteResult> CreateObjectAsync(string axType, string model, string xml, CancellationToken ct)
     {
         var result = await _pool.Acquire().InvokeAsync("createObject",
             new JsonObject { ["axType"] = axType, ["model"] = model, ["xml"] = xml }, ct).ConfigureAwait(false);
-        return result?["name"]?.GetValue<string>() ?? string.Empty;
+        return ToRawWriteResult(result);
     }
 
     /// <summary>
     /// Overwrite an existing AOT object's XML. Caller is expected to have
     /// pulled the current XML via GetObjectXmlAsync and edited it locally.
     /// </summary>
-    public async Task<string> UpdateObjectAsync(string axType, string model, string xml, CancellationToken ct)
+    public async Task<BridgeRawWriteResult> UpdateObjectAsync(string axType, string model, string xml, CancellationToken ct)
     {
         var result = await _pool.Acquire().InvokeAsync("updateObject",
             new JsonObject { ["axType"] = axType, ["model"] = model, ["xml"] = xml }, ct).ConfigureAwait(false);
-        return result?["name"]?.GetValue<string>() ?? string.Empty;
+        return ToRawWriteResult(result);
+    }
+
+    /// <summary>
+    /// Parse the raw createObject / updateObject result: the resolved Name plus
+    /// any round-trip drops the bridge detected (elements the posted XML carried
+    /// that MS's FromFile discarded). Drops are advisory — the write succeeded.
+    /// </summary>
+    private static BridgeRawWriteResult ToRawWriteResult(JsonNode? result)
+    {
+        var name = result?["name"]?.GetValue<string>() ?? string.Empty;
+        var drops = new List<RawWriteDrop>();
+        if (result?["droppedProperties"] is JsonArray arr)
+        {
+            foreach (var n in arr)
+            {
+                var path = n?["path"]?.GetValue<string>();
+                if (string.IsNullOrEmpty(path)) continue;
+                drops.Add(new RawWriteDrop(path!, n?["value"]?.GetValue<string>() ?? string.Empty));
+            }
+        }
+        return new BridgeRawWriteResult(name, drops);
     }
 
     // -------------------------------------------------------------------

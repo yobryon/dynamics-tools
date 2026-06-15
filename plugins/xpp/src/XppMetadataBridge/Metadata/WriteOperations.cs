@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Microsoft.Dynamics.AX.Metadata.MetaModel;
@@ -133,6 +134,27 @@ namespace XppMetadataBridge.Metadata
             finally
             {
                 try { File.Delete(tempPath); } catch { /* best effort */ }
+            }
+        }
+
+        /// <summary>
+        /// Advisory round-trip drop detection for the raw write surface.
+        /// Re-serializes the just-deserialized object (the exact on-disk shape
+        /// the write will persist) and diffs it against the caller's posted
+        /// XML. Any meaningful element MS's FromFile silently dropped comes back
+        /// as an <see cref="XmlDrop"/>. Strictly best-effort: a detector failure
+        /// returns an empty list and never disturbs the write.
+        /// </summary>
+        public static IReadOnlyList<XmlDrop> DetectDroppedProperties(string postedXml, object metadataObject)
+        {
+            try
+            {
+                var roundTripXml = Handlers.GetObjectXmlHandler.SerializeToXml(metadataObject);
+                return RoundTripDropDetector.Detect(postedXml, roundTripXml);
+            }
+            catch
+            {
+                return System.Array.Empty<XmlDrop>();
             }
         }
 

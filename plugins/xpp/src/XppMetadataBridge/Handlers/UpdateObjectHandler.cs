@@ -46,15 +46,32 @@ namespace XppMetadataBridge.Handlers
             var nameProp = accessor.EntityType.GetProperty("Name");
             var resolvedName = nameProp?.GetValue(metadataObject) as string;
 
+            // Round-trip drop detection: re-serialize what FromFile actually
+            // parsed and diff it against the posted XML. Surfaces content MS's
+            // DataContract deserializer silently discarded (out-of-order or
+            // unrecognized elements) as advisory warnings -- the write itself
+            // proceeds regardless. Strictly best-effort: never block a write on
+            // the detector.
+            var drops = WriteOperations.DetectDroppedProperties(xml, metadataObject);
+            JArray? dropped = null;
+            if (drops.Count > 0)
+            {
+                dropped = new JArray();
+                foreach (var d in drops)
+                    dropped.Add(new JObject { ["path"] = d.Path, ["value"] = d.Value });
+            }
+
             WriteOperations.Invoke(accessor, WriteOperations.WriteKind.Update, metadataObject, saveInfo);
 
-            return Task.FromResult<object?>(new
+            var response = new JObject
             {
-                axType,
-                model,
-                name = resolvedName,
-                updated = true
-            });
+                ["axType"] = axType,
+                ["model"] = model,
+                ["name"] = resolvedName,
+                ["updated"] = true
+            };
+            if (dropped != null) response["droppedProperties"] = dropped;
+            return Task.FromResult<object?>(response);
         }
     }
 }
