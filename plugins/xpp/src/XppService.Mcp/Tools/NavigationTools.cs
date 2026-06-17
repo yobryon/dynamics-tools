@@ -143,7 +143,7 @@ public sealed class NavigationTools
         [Description("Target path. For set/merge/remove: the node ('/design/controls/Grid/controls/Grid_Name'). For append: the collection ('/design/controls/Grid/controls').")]
         string atPath,
         [Description("set | merge | append | remove.")] string op,
-        [Description("JSON value to splice (a domain-shaped object). Omit for remove.")]
+        [Description("JSON value to splice, in the same domain shape get returns for that node. For a structural node it's an object (e.g. a control), or for append the new member object. For a SCALAR node (a string/int/bool leaf such as /sourceCode/declaration) it's the JSON-encoded scalar — a string MUST be double-quoted with escaped newlines (e.g. \"[Form]\\npublic class ...\"), not pasted raw. Omit for remove.")]
         JsonElement? value = null,
         [Description("Preview only: return the edited subtree WITHOUT writing, so you can confirm the change landed where intended before committing. Recommended before a non-trivial edit.")]
         bool dryRun = false,
