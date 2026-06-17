@@ -186,16 +186,39 @@ namespace XppMetadataBridge.Metadata.Domain
             => o[key] is JToken t && t.Type == JTokenType.String ? (string)t! : null;
 
         /// <summary>
-        /// Disable a KeyedObjectCollection's duplicate-key guard before bulk
-        /// add. MS-shipped metadata can carry collection entries that share a
-        /// computed key (e.g. two AxEdtRelationFixed to the same Table#Field,
-        /// differing only by Value). MS's own FromFile deserializer flips this
-        /// flag off to populate such collections; the typed Create path keeps
-        /// it on by default and would throw on the duplicate. No-ops when the
-        /// property is absent.
+        /// Prepare a metaclass collection for full (re)population from caller
+        /// JSON: CLEAR it, then disable the duplicate-key guard.
+        ///
+        /// The clear is the load-bearing half on the PATCH path. A patch reads
+        /// the existing object — collections already populated from disk — and
+        /// re-runs the mapper's builders over it. A builder that only Adds would
+        /// CONCATENATE the submitted collection onto the existing one, producing
+        /// duplicate-keyed entries that write but fail to deserialize on the next
+        /// read/compile. That was a recurring bug class across three sprints
+        /// (menu elements, role duties, privilege entryPoints). Clearing here
+        /// makes every builder that routes through this chokepoint
+        /// replace-wholesale by construction — a no-op on create / rebuild-fresh
+        /// (the collection is already empty) and a true replace on a
+        /// mutate-in-place patch. Builders gate on `if (arr == null) return;`
+        /// BEFORE calling this, so a patch that omits a collection never reaches
+        /// here and leaves it untouched (correct merge-patch semantics).
+        ///
+        /// The duplicate-key flag-off remains for MS-shipped collections that
+        /// legitimately carry same-key entries (e.g. two AxEdtRelationFixed to the
+        /// same Table#Field, differing only by Value); MS's own FromFile flips it
+        /// off to populate them, and the typed Create path would otherwise throw.
+        /// Builders that need the guard kept ON (unique-keyed trees, e.g. AxMenu
+        /// elements) deliberately do NOT call this — they Clear() themselves and
+        /// let the guard reject duplicate-named entries at write time.
+        ///
+        /// No-ops when a Clear method / DuplicateCheckingEnabled property is absent.
         /// </summary>
         public static void AllowDuplicates(object keyedCollection)
         {
+            // Clear first — replace, don't append. This is what stops a patch
+            // (which loads the existing collection) from doubling it.
+            try { keyedCollection.GetType().GetMethod("Clear", System.Type.EmptyTypes)?.Invoke(keyedCollection, null); }
+            catch { /* best effort */ }
             var prop = keyedCollection.GetType().GetProperty("DuplicateCheckingEnabled");
             try { prop?.SetValue(keyedCollection, false); } catch { /* best effort */ }
         }
