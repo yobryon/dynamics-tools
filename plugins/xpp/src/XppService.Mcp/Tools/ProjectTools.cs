@@ -310,12 +310,14 @@ public sealed class ProjectTools
         "records the rename in the pending change set via 'tf rename'. " +
         "REFUSES if the object lives in a different model than the active " +
         "project. Does NOT chase down or rewrite X++ source-code references " +
-        "in other files — referencing forms, menu items, etc. need to be " +
-        "updated by the caller. The within-file X++ class declaration IS " +
-        "updated automatically (class oldName extends... -> class newName " +
-        "extends...). Returns {renamed, fileMoved, nameElementUpdated, " +
-        "classDeclarationUpdated, projectUpdated, changesetUpdated, " +
-        "sideEffectWarnings}.")]
+        "in other files — but it DETECTS them: the response carries " +
+        "'dependentCount' and 'dependents' (the indexed inbound referrers of " +
+        "the old name, with sourceAxType / sourceName / kind) so you have an " +
+        "exact to-fix list instead of guessing. The within-file X++ class " +
+        "declaration IS updated automatically (class oldName extends... -> " +
+        "class newName extends...). Returns {renamed, fileMoved, " +
+        "nameElementUpdated, classDeclarationUpdated, projectUpdated, " +
+        "changesetUpdated, dependentCount, dependents, sideEffectWarnings}.")]
     public async Task<string> RenameObject(
         [Description("AOT type, e.g. 'AxClass', 'AxTable', 'AxForm'.")] string axType,
         [Description("Current object name on disk.")] string oldName,
@@ -365,6 +367,14 @@ public sealed class ProjectTools
                 message = $"An on-disk file already exists for {axType} '{newName}' at {newPath}. Refusing to overwrite.",
             });
         }
+
+        // Capture inbound referrers of the OLD name BEFORE the rename, while the
+        // index still resolves them. Rename does NOT rewrite these (X++ source,
+        // form bindings, menu-item Objects, privilege entry points, ...) — but
+        // surfacing exactly WHICH objects point at the old name turns the generic
+        // "search manually" nudge into an actionable to-fix list. Same
+        // indexer-backed detection xpp_delete_object uses.
+        var dependents = await CountInboundRefsAsync(axType, oldName, ct).ConfigureAwait(false);
 
         var warnings = new List<string>();
         var fileMoved = false;
@@ -436,10 +446,12 @@ public sealed class ProjectTools
         try { changesetUpdated = await _project.RenameInChangesetAsync(axType, oldName, newName, ct).ConfigureAwait(false); }
         catch (Exception ex) { changesetUpdated = false; warnings.Add($"changeset rename failed: {ex.Message}"); }
 
-        warnings.Add(
-            "References to this object in OTHER files (X++ source, form bindings, " +
-            "menu items, security entry points, etc.) were NOT rewritten. Search " +
-            "and update them manually before the next compile.");
+        warnings.Add(dependents.count == 0
+            ? "No inbound references detected in the index — but the index can lag; "
+              + "a quick xpp_find_references / grep on the old name before compiling is cheap insurance."
+            : $"{dependents.count} object(s) reference the OLD name and were NOT rewritten "
+              + "(rename moves the artifact only). See 'dependents' for the list — update each "
+              + "(X++ source, form bindings, menu-item Objects, privilege entry points, ...) before the next compile.");
 
         return JsonSerializer.Serialize(new
         {
@@ -452,6 +464,8 @@ public sealed class ProjectTools
             classDeclarationUpdated,
             projectUpdated,
             changesetUpdated,
+            dependentCount = dependents.count,
+            dependents = dependents.samples,
             sideEffectWarnings = warnings.ToArray(),
         });
     }
