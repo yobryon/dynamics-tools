@@ -169,6 +169,28 @@ that must ALREADY exist). Empty/stubbed tabs fail compile
 first and fill the lists later — author the FormPart forms BEFORE the workspace
 form, or it won't compile.
 
+The host `FormPartControl`'s **`targetName` resolves to a *Display menu item*,
+not the form directly** — point it at the `AxMenuItemDisplay` whose Object is
+the FormPart form (a bad/missing one compiles to `MenuItemDisplayDoesNotExist`).
+
+### FormPartControl width: set `WidthMode=SizeToAvailable` the WHOLE way down
+
+The host `FormPartControl` should set **both `HeightMode` AND `WidthMode` =
+`SizeToAvailable`**. Omitting `WidthMode` renders the embedded part at auto/narrow
+width (a tell-tale empty band to the right of the part). The dangerous part is
+the **symptom misdirection**: if that part is a `FormPartSectionListDouble` with
+a `Strip` ActionPane in its secondary group, a narrow part starves the toolbar
+and the responsive layout silently collapses *every command button into the "…"
+overflow flyout* — so the failure *looks* like a button/ActionPane problem when
+the cause is one or two levels up in the host container's width.
+
+Width has to be unobstructed the entire chain: **set
+`WidthMode=SizeToAvailable` on BOTH (1) the host `FormPartControl` container in
+the workspace tab AND (2) the Double pattern's secondary group
+(`group_sideBySideSecondary`) inside the FormPart.** Fixing only one still
+overflows. If buttons render only under "…" with plenty of empty horizontal
+space, suspect width modes before touching the buttons or ActionPane.
+
 ### Propagating the page filter to tiles + FormParts
 
 **Native mechanism (use this when it fits — zero code):** F&O auto-propagates
