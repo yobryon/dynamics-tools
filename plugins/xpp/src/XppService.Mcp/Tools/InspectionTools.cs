@@ -38,29 +38,33 @@ public sealed class InspectionTools
         [Description("Model the object lives in (e.g. 'Foundation', 'ApplicationSuite').")] string model,
         CancellationToken ct = default)
     {
-        var summaries = new List<object>();
-        using var call = _conn.Client.GetObjectMethods(new ObjectRef
+        try
         {
-            Name = name,
-            AxType = axType,
-            Model = model
-        });
-
-        while (await call.ResponseStream.MoveNext(ct))
-        {
-            var m = call.ResponseStream.Current;
-            summaries.Add(new
+            var summaries = new List<object>();
+            using var call = _conn.Client.GetObjectMethods(new ObjectRef
             {
-                name = m.Name,
-                signature = m.Signature,
-                isStatic = m.IsStatic,
-                accessLevel = m.AccessLevel,
-                returnType = m.ReturnType,
-                lineCount = m.LineCount
+                Name = name,
+                AxType = axType,
+                Model = model
             });
-        }
 
-        return JsonSerializer.Serialize(new { count = summaries.Count, methods = summaries });
+            while (await call.ResponseStream.MoveNext(ct))
+            {
+                var m = call.ResponseStream.Current;
+                summaries.Add(new
+                {
+                    name = m.Name,
+                    signature = m.Signature,
+                    isStatic = m.IsStatic,
+                    accessLevel = m.AccessLevel,
+                    returnType = m.ReturnType,
+                    lineCount = m.LineCount
+                });
+            }
+
+            return JsonSerializer.Serialize(new { count = summaries.Count, methods = summaries });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_get_object_methods", ex); }
     }
 
     [McpServerTool(Name = "xpp_get_method_source"), Description(
@@ -99,6 +103,12 @@ public sealed class InspectionTools
             // Return a structured "not found" payload instead of an exception
             // so the agent can branch on the data rather than catching errors.
             return JsonSerializer.Serialize(new { error = "not_found", message = rex.Status.Detail });
+        }
+        catch (Exception ex)
+        {
+            // Anything else (non-NotFound RpcException, bridge/internal failure)
+            // would otherwise escape to the SDK's contentless envelope. Surface it.
+            return ToolError.From("xpp_get_method_source", ex);
         }
     }
 }

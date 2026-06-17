@@ -48,27 +48,36 @@ public sealed class AuthoringTools
         "expects on the way back in. Use this to start any modification: read, " +
         "edit, write. For the XSD before editing, see xpp://schema/{type}; " +
         "for property-by-property authoring guidance, load the matching " +
-        "xpp:{type} skill from the dynamics-xpp plugin.")]
+        "xpp:{type} skill from the dynamics-xpp plugin. NOTE: a big object " +
+        "(a large form, a wide table) serializes to one very large XML string " +
+        "that can exceed tool result-size limits — to inspect or navigate such " +
+        "an object prefer the typed xpp_get_{type} with outline=true / atPath " +
+        "(depth-bounded, zoomable), and reach for raw XML only when you truly " +
+        "need the full envelope.")]
     public async Task<string> GetObjectXml(
         [Description("AOT type name, e.g. 'AxClass', 'AxTable', 'AxForm'.")] string axType,
         [Description("Object name (PascalCase identifier).")] string name,
         [Description("Optional model name to disambiguate when the same name exists across models.")] string? model = null,
         CancellationToken ct = default)
     {
-        var req = new ObjectRef
+        try
         {
-            AxType = axType,
-            Name = name,
-            Model = model ?? string.Empty
-        };
-        var resp = await _conn.Client.GetObjectXmlAsync(req, cancellationToken: ct);
-        return JsonSerializer.Serialize(new
-        {
-            axType = resp.Ref.AxType,
-            name = resp.Ref.Name,
-            model = resp.Ref.Model,
-            xml = resp.Xml
-        });
+            var req = new ObjectRef
+            {
+                AxType = axType,
+                Name = name,
+                Model = model ?? string.Empty
+            };
+            var resp = await _conn.Client.GetObjectXmlAsync(req, cancellationToken: ct);
+            return JsonSerializer.Serialize(new
+            {
+                axType = resp.Ref.AxType,
+                name = resp.Ref.Name,
+                model = resp.Ref.Model,
+                xml = resp.Xml
+            });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_get_object_xml", ex); }
     }
 
     [McpServerTool(Name = "xpp_create_object"), Description(

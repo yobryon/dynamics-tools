@@ -44,30 +44,34 @@ public sealed class SearchTools
         [Description("Optional model name filter. Leave empty for all models.")] string? model = null,
         CancellationToken ct = default)
     {
-        var request = new FindObjectRequest
+        try
         {
-            Name = name,
-            AxType = axType ?? string.Empty,
-            Model = model ?? string.Empty
-        };
-
-        var hits = new List<object>();
-        using var call = _conn.Client.FindObject(request);
-        while (await call.ResponseStream.MoveNext(ct))
-        {
-            var m = call.ResponseStream.Current;
-            var src = string.IsNullOrEmpty(m.Ref.Source) ? "disk" : m.Ref.Source;
-            hits.Add(new
+            var request = new FindObjectRequest
             {
-                name = m.Ref.Name,
-                axType = m.Ref.AxType,
-                model = m.Ref.Model,
-                source = src,
-                binaryModule = src == "runtime",
-            });
-        }
+                Name = name,
+                AxType = axType ?? string.Empty,
+                Model = model ?? string.Empty
+            };
 
-        return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+            var hits = new List<object>();
+            using var call = _conn.Client.FindObject(request);
+            while (await call.ResponseStream.MoveNext(ct))
+            {
+                var m = call.ResponseStream.Current;
+                var src = string.IsNullOrEmpty(m.Ref.Source) ? "disk" : m.Ref.Source;
+                hits.Add(new
+                {
+                    name = m.Ref.Name,
+                    axType = m.Ref.AxType,
+                    model = m.Ref.Model,
+                    source = src,
+                    binaryModule = src == "runtime",
+                });
+            }
+
+            return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_find_object", ex); }
     }
 
     [McpServerTool(Name = "xpp_search_pattern"), Description(
@@ -82,31 +86,35 @@ public sealed class SearchTools
         [Description("Maximum results to return. Default 100. Pass 0 for no cap (use carefully on broad patterns).")] int limit = 100,
         CancellationToken ct = default)
     {
-        var request = new PatternRequest
+        try
         {
-            Pattern = pattern,
-            AxType = axType ?? string.Empty,
-            Model = model ?? string.Empty,
-            Limit = limit
-        };
-
-        var hits = new List<object>();
-        using var call = _conn.Client.SearchByPattern(request);
-        while (await call.ResponseStream.MoveNext(ct))
-        {
-            var m = call.ResponseStream.Current;
-            var src = string.IsNullOrEmpty(m.Ref.Source) ? "disk" : m.Ref.Source;
-            hits.Add(new
+            var request = new PatternRequest
             {
-                name = m.Ref.Name,
-                axType = m.Ref.AxType,
-                model = m.Ref.Model,
-                source = src,
-                binaryModule = src == "runtime",
-            });
-        }
+                Pattern = pattern,
+                AxType = axType ?? string.Empty,
+                Model = model ?? string.Empty,
+                Limit = limit
+            };
 
-        return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+            var hits = new List<object>();
+            using var call = _conn.Client.SearchByPattern(request);
+            while (await call.ResponseStream.MoveNext(ct))
+            {
+                var m = call.ResponseStream.Current;
+                var src = string.IsNullOrEmpty(m.Ref.Source) ? "disk" : m.Ref.Source;
+                hits.Add(new
+                {
+                    name = m.Ref.Name,
+                    axType = m.Ref.AxType,
+                    model = m.Ref.Model,
+                    source = src,
+                    binaryModule = src == "runtime",
+                });
+            }
+
+            return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_search_pattern", ex); }
     }
 
     [McpServerTool(Name = "xpp_search_code"), Description(
@@ -120,24 +128,28 @@ public sealed class SearchTools
         [Description("Maximum results. Default 50.")] int limit = 50,
         CancellationToken ct = default)
     {
-        var request = new CodeSearchRequest { Query = query, Limit = limit };
-
-        var hits = new List<object>();
-        using var call = _conn.Client.SearchCode(request);
-        while (await call.ResponseStream.MoveNext(ct))
+        try
         {
-            var h = call.ResponseStream.Current;
-            hits.Add(new
-            {
-                name = h.Object.Name,
-                axType = h.Object.AxType,
-                model = h.Object.Model,
-                methodName = h.MethodName,
-                snippet = h.Snippet
-            });
-        }
+            var request = new CodeSearchRequest { Query = query, Limit = limit };
 
-        return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+            var hits = new List<object>();
+            using var call = _conn.Client.SearchCode(request);
+            while (await call.ResponseStream.MoveNext(ct))
+            {
+                var h = call.ResponseStream.Current;
+                hits.Add(new
+                {
+                    name = h.Object.Name,
+                    axType = h.Object.AxType,
+                    model = h.Object.Model,
+                    methodName = h.MethodName,
+                    snippet = h.Snippet
+                });
+            }
+
+            return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_search_code", ex); }
     }
 
     [McpServerTool(Name = "xpp_search_semantic"), Description(
@@ -160,34 +172,38 @@ public sealed class SearchTools
         [Description("Maximum results. Default 20.")] int limit = 20,
         CancellationToken ct = default)
     {
-        var request = new SemanticSearchRequest
+        try
         {
-            Query = query,
-            Kind = kind ?? "method",
-            Mode = mode ?? "hybrid",
-            Limit = limit
-        };
-
-        var hits = new List<object>();
-        using var call = _conn.Client.SearchSemantic(request);
-        while (await call.ResponseStream.MoveNext(ct))
-        {
-            var h = call.ResponseStream.Current;
-            hits.Add(new
+            var request = new SemanticSearchRequest
             {
-                kind = h.Kind,
-                name = h.Object?.Name,
-                axType = h.Object?.AxType,
-                model = h.Object?.Model,
-                methodName = string.IsNullOrEmpty(h.MethodName) ? null : h.MethodName,
-                labelKey = string.IsNullOrEmpty(h.LabelKey) ? null : h.LabelKey,
-                excerpt = h.Text,
-                score = Math.Round(h.Score, 4),
-                distance = Math.Round(h.Distance, 4),
-            });
-        }
+                Query = query,
+                Kind = kind ?? "method",
+                Mode = mode ?? "hybrid",
+                Limit = limit
+            };
 
-        return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+            var hits = new List<object>();
+            using var call = _conn.Client.SearchSemantic(request);
+            while (await call.ResponseStream.MoveNext(ct))
+            {
+                var h = call.ResponseStream.Current;
+                hits.Add(new
+                {
+                    kind = h.Kind,
+                    name = h.Object?.Name,
+                    axType = h.Object?.AxType,
+                    model = h.Object?.Model,
+                    methodName = string.IsNullOrEmpty(h.MethodName) ? null : h.MethodName,
+                    labelKey = string.IsNullOrEmpty(h.LabelKey) ? null : h.LabelKey,
+                    excerpt = h.Text,
+                    score = Math.Round(h.Score, 4),
+                    distance = Math.Round(h.Distance, 4),
+                });
+            }
+
+            return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_search_semantic", ex); }
     }
 
     [McpServerTool(Name = "xpp_find_references"), Description(
@@ -222,30 +238,34 @@ public sealed class SearchTools
         [Description("Maximum results. Default 200.")] int limit = 200,
         CancellationToken ct = default)
     {
-        var request = new ReferenceQuery
+        try
         {
-            TargetName = targetName ?? string.Empty,
-            TargetType = targetType ?? string.Empty,
-            TargetField = targetField ?? string.Empty,
-            TargetLabel = targetLabel ?? string.Empty,
-            IncludeSourceMentions = includeSourceMentions,
-            Limit = limit
-        };
-
-        var hits = new List<object>();
-        using var call = _conn.Client.FindReferences(request);
-        while (await call.ResponseStream.MoveNext(ct))
-        {
-            var h = call.ResponseStream.Current;
-            hits.Add(new
+            var request = new ReferenceQuery
             {
-                source = new { name = h.Source.Name, axType = h.Source.AxType, model = h.Source.Model },
-                kind = h.Kind,
-                context = h.Context,
-                sourceMember = h.SourceMember,
-            });
-        }
+                TargetName = targetName ?? string.Empty,
+                TargetType = targetType ?? string.Empty,
+                TargetField = targetField ?? string.Empty,
+                TargetLabel = targetLabel ?? string.Empty,
+                IncludeSourceMentions = includeSourceMentions,
+                Limit = limit
+            };
 
-        return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+            var hits = new List<object>();
+            using var call = _conn.Client.FindReferences(request);
+            while (await call.ResponseStream.MoveNext(ct))
+            {
+                var h = call.ResponseStream.Current;
+                hits.Add(new
+                {
+                    source = new { name = h.Source.Name, axType = h.Source.AxType, model = h.Source.Model },
+                    kind = h.Kind,
+                    context = h.Context,
+                    sourceMember = h.SourceMember,
+                });
+            }
+
+            return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_find_references", ex); }
     }
 }
