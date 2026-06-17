@@ -186,7 +186,7 @@ namespace XppMetadataBridge.Metadata.Domain
                 {
                     if (string.Equals((string?)m["name"], "classDeclaration", StringComparison.Ordinal)) continue;
                     var am = new AxMethod { Name = (string?)m["name"] ?? string.Empty };
-                    if (m["source"] is JToken ms && ms.Type == JTokenType.String) am.Source = (string)ms!;
+                    if (m["source"] is JToken ms && ms.Type == JTokenType.String) am.Source = MethodSource.NormalizeIndent((string)ms!);
                     addM?.Invoke(ax.Methods, new object[] { am });
                 }
 
@@ -221,7 +221,7 @@ namespace XppMetadataBridge.Metadata.Domain
             foreach (var m in methods.OfType<JObject>())
             {
                 var am = new AxMethod { Name = (string?)m["name"] ?? string.Empty };
-                if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = (string)s!;
+                if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = MethodSource.NormalizeIndent((string)s!);
                 add?.Invoke(methodColl, new object[] { am });
             }
         }

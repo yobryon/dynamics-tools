@@ -59,7 +59,7 @@ namespace XppMetadataBridge.Metadata.Domain
             var name = (string?)json["name"]
                 ?? throw new JsonRpcException(JsonRpcErrorCodes.InvalidParams, "AxMethod name is required.");
             var m = new AxMethod { Name = name };
-            if (json["source"] is JToken s && s.Type == JTokenType.String) m.Source = (string)s!;
+            if (json["source"] is JToken s && s.Type == JTokenType.String) m.Source = MethodSource.NormalizeIndent((string)s!);
             return m;
         }
 
