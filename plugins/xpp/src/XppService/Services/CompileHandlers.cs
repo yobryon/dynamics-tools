@@ -276,6 +276,26 @@ public sealed partial class PingGrpcService
             response.Diagnostics.Add(diag);
         }
 
+        // Stale-diagnostics guard. An UP-TO-DATE build (devenv recompiled
+        // nothing) that nonetheless surfaces ERROR diagnostics is incoherent:
+        // those errors were re-printed from a PRIOR build's cache and do not
+        // reflect the current on-disk source. This bit the edit->compile loop —
+        // MCP writes that already fixed the errors, then an incremental /Build
+        // reports them as still present (upToDate:true alongside contradictory
+        // errors). Flag it loudly; rebuild=true is the only trustworthy path
+        // after a write. Source-agnostic: catches the leak whether it arrived
+        // via stdout or a touched-but-stale result XML.
+        var errorDiagCount = response.Diagnostics.Count(d =>
+            string.Equals(d.Severity, "Error", StringComparison.OrdinalIgnoreCase));
+        if (response.UpToDate && errorDiagCount > 0)
+        {
+            response.SummaryLine = response.SummaryLine +
+                $" -- WARNING: build was up-to-date (nothing recompiled) yet reports {errorDiagCount} " +
+                "error(s); these are CACHED from a prior build and may NOT reflect the current source " +
+                "(e.g. after MCP edits the errors already fixed). Re-run with rebuild=true for " +
+                "authoritative diagnostics.";
+        }
+
         // Last-resort surface: when success=false and we still have no
         // structured diagnostics, attach the raw devenv stdout/stderr so the
         // agent has SOMETHING to reason about rather than an empty
