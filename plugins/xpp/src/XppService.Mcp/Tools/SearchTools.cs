@@ -119,10 +119,16 @@ public sealed class SearchTools
 
     [McpServerTool(Name = "xpp_search_code"), Description(
         "Full-text search over indexed X++ method bodies using SQLite FTS5. " +
-        "Supports phrase queries (use quotes), boolean operators (AND, OR, " +
-        "NOT), prefix matching ('foo*'), and proximity (NEAR). Returns " +
-        "matching methods with FTS5-highlighted snippets (matches wrapped " +
-        "in <mark>…</mark>).")]
+        "Each row is ONE method body, tokenized to bare IDENTIFIERS — " +
+        "punctuation like ().:-> is stripped, so search the bare identifier " +
+        "('addControlEx', not 'design().addControl'). Supports phrase queries " +
+        "(quotes), boolean operators (AND, OR, NOT), prefix ('foo*'), and " +
+        "proximity (NEAR) — but AND/NEAR/multi-phrase require all terms to " +
+        "co-occur in ONE method body, so a zero can mean 'no single method has " +
+        "them together', not 'absent'. Start broad with one bare identifier and " +
+        "narrow. Returns matching methods with FTS5-highlighted snippets " +
+        "(matches wrapped in <mark>…</mark>); a zero-result response includes a " +
+        "'hint' when the query shape likely caused the miss.")]
     public async Task<string> SearchCode(
         [Description("FTS5 query. Examples: 'validateWrite', '\"select forUpdate\"', 'tax AND withholding', 'cust*'")] string query,
         [Description("Maximum results. Default 50.")] int limit = 50,
@@ -147,9 +153,43 @@ public sealed class SearchTools
                 });
             }
 
-            return JsonSerializer.Serialize(new { count = hits.Count, results = hits });
+            var payload = new Dictionary<string, object?> { ["count"] = hits.Count, ["results"] = hits };
+            if (hits.Count == 0)
+            {
+                var hint = CodeSearchZeroHint(query);
+                if (hint != null) payload["hint"] = hint;
+            }
+            return JsonSerializer.Serialize(payload);
         }
         catch (Exception ex) { return ToolError.From("xpp_search_code", ex); }
+    }
+
+    // A count:0 from xpp_search_code is load-bearing during recon — agents act
+    // on "nothing found" as evidence. When a zero came from a likely-degenerate
+    // query (punctuation the FTS tokenizer strips, or AND/NEAR/multi-phrase that
+    // demands co-occurrence in one method body), say WHY so the zero isn't read
+    // as "this code doesn't exist." Returns null for a plain bare-term query
+    // (its zero is trustworthy).
+    private static string? CodeSearchZeroHint(string query)
+    {
+        if (string.IsNullOrEmpty(query)) return null;
+        bool hasStripPunct = query.IndexOfAny(new[] { '(', ')', '.', ':', '>', '<', '[', ']', '-', '/' }) >= 0;
+        int quotes = 0; foreach (var ch in query) if (ch == '"') quotes++;
+        bool hasCooccur = System.Text.RegularExpressions.Regex.IsMatch(query, @"\b(AND|OR|NOT|NEAR)\b")
+                          || quotes >= 4; // two or more quoted phrases
+        if (!hasStripPunct && !hasCooccur) return null;
+
+        var parts = new List<string>
+        {
+            "xpp_search_code is FTS5 over per-method-body rows, tokenized to bare identifiers",
+        };
+        if (hasStripPunct)
+            parts.Add("punctuation like ().:->[]/ is stripped by the tokenizer, so a phrase containing it "
+                + "(e.g. \"design().addControl\") won't match as written — search the bare identifier (e.g. addControl)");
+        if (hasCooccur)
+            parts.Add("AND/NEAR/multiple phrases require ALL terms in ONE method body, so this zero may mean no "
+                + "single method co-occurs them, not that the code is absent — try one bare term at a time");
+        return string.Join("; ", parts) + ". This zero may be query shape, not absence.";
     }
 
     [McpServerTool(Name = "xpp_search_semantic"), Description(
