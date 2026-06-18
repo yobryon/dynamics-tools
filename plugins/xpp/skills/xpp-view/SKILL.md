@@ -307,12 +307,26 @@ return type. The `<ViewMethod>` element names a static method
 on the view's SourceCode.
 
 ```xml
-<AxViewField xmlns="" i:type="AxViewFieldString">
+<AxViewField xmlns="" i:type="AxViewFieldComputedString">
     <Name>FullName</Name>
     <ExtendedDataType>NameLong</ExtendedDataType>
     <ViewMethod>computeFullName</ViewMethod>
 </AxViewField>
 ```
+
+> **Two things the compiler is strict about (a clean `xpp_get_view`
+> round-trip will NOT catch either — only `xpp_compile` does):**
+> - **Bind via `viewMethod`, NOT `method`.** The computed-column method binding
+>   is `<ViewMethod>`. The mapper also accepts a `method` key (it's a separate,
+>   real property) and will faithfully emit `<Method>` — but the kernel then
+>   tries to bind it as a SysComputedColumn class method, can't find it, and
+>   fails (`ClassDoesNotContainMethod` / column doesn't bind). For a computed
+>   column always use `viewMethod`.
+> - **`kind` must be the `Computed<Type>` variant** — `kind: "ComputedInt64"`
+>   → `i:type="AxViewFieldComputedInt64"`. A bare `kind: "Int64"` (or `"Int"`)
+>   is rejected by the deserializer; there is no `AxViewFieldInt64`. The
+>   computed subtypes are ComputedString / ComputedInt / ComputedInt64 /
+>   ComputedReal / ComputedDate / ComputedEnum / ComputedUtcDateTime.
 
 The method must:
 - Be `public static` on the view's class.

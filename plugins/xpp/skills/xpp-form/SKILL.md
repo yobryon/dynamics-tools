@@ -490,6 +490,35 @@ own:
   `xpp_create_form` / `xpp_patch_form`; don't hand-write control XML into
   `xpp_update_object` — the on-disk element order is contract-significant
   and a misordered element is silently dropped on the round-trip.
+- **A `dataMethod` can resolve against THREE method homes — pick the form
+  the validator accepts.** Form metadata validation (and so the compiler:
+  `DataMethodNotFoundOnDataSource` when you get it wrong) resolves a grid
+  column's `dataMethod` against:
+  1. **A display/edit method on the bound datasource's TABLE** — bare method
+     name; `this` inside the method IS the record. `dataMethod: "displayAge"`.
+  2. **A display method authored on the FORM DATASOURCE itself** — also a bare
+     method name (named as on the datasource), `dataSource` = that datasource.
+     Critical signature difference: a datasource display method's `this` is the
+     **datasource**, not the record, so F&O injects the record as a
+     **parameter** — the method must accept the table buffer and use it instead
+     of `this`:
+     ```
+     public display DirPartyName consigneeName(ConShipmentTable shipmentTable)
+     { return DirPartyTable::find(shipmentTable.ConsigneePartyNumber).Name; }
+     ```
+     `dataMethod: "consigneeName"`, `dataSource: "ConShipmentTable"`.
+     (A datasource method written table-style — no parameter, reaching for
+     `this` — won't bind.)
+  3. **A display method added by a table-augmentation `[ExtensionOf]` class** —
+     write the **qualified `ClassName.methodName`** in `dataMethod`, e.g.
+     `dataMethod: "ConTable_InventTransferLine_Extension.conHasMarkedTransOrigin"`,
+     `dataSource: "InventTransferLine"`. The bare method name fails (the
+     validator looks on the table and the augmentation method isn't there
+     unqualified); the `Class.method` form binds it.
+
+  So when the root table is MS-sealed you do NOT have to re-home onto a table
+  you own — a form-datasource display method (form #2, with the record
+  parameter) or an `[ExtensionOf]` method (form #3, qualified) both work.
 - **Don't redeclare controls or data sources in the X++ class.** The
   form runtime adds them to the class scope automatically. See
   `dynamics-xpp:xpp-class`.

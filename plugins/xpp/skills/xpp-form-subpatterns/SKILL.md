@@ -36,6 +36,18 @@ reference by name. Load it any time a pattern skill says
 Pattern conformance is checked at both levels: form pattern
 validation **plus** every container's sub-pattern validation.
 
+> **`patternConformance.ok=true` is NOT a compile guarantee.** It reports
+> conformance to MS's *designer* pattern engine (the same `Patterns.dll`
+> `TestPattern` behind the VS "Pattern" tab) after the plugin auto-stamps every
+> `Equals` property violation — so it catches missing required controls and
+> wrong-where-stampable property values. The *compiler's* pattern validator is
+> stricter on two things the designer engine does NOT report (so `ok=true`
+> stays silent and compile still fails): (1) certain **required property
+> VALUES** (e.g. SectionTiles `ColumnsMode`/`ArrangeMethod`/`ExtendedStyle`,
+> below) and (2) **which child-control kinds are legal** in a sub-pattern slot
+> (`PatternControlNotAllowed`). Read `ok=true` as "structurally conformant,"
+> never "will compile" — `xpp_compile` is the only authority.
+
 ---
 
 ## The sub-pattern catalog
@@ -209,6 +221,10 @@ related forms via menu items; charts are defined via Form Part
 Controls.
 
 - MS reference: `SalesOrderProcessingWorkspace`.
+- **Required property VALUES the compiler enforces but `patternConformance`
+  does NOT flag** — set them yourself on the SectionTiles group or compile
+  fails with pattern errors: `ColumnsMode=Fixed`, `ArrangeMethod=HorizontalLeft`,
+  `ExtendedStyle=workspace_tileLayout`.
 
 ### Section Related Links
 
@@ -283,6 +299,15 @@ top-level pattern, see `ROADMAP.md`):
 - **Filters and Toolbar – Stacked** — actions appear *below* filters.
 - **Filters and Toolbar – Inline** — filters and actions on the same
   line.
+
+The toolbar's action controls have a **required shape the compiler enforces
+but `patternConformance` does NOT catch**: the toolbar must be an
+`ActionPane` (`Style=Strip`) → `ActionPaneTab` → `ButtonGroup` →
+`CommandButton`s. A bare `ButtonGroup` as a direct child of the
+FiltersAndToolbar group, or loose `Button` controls in the filter group, are
+rejected at compile with `PatternControlNotAllowed` (and
+`PatternPropertyRequiredValue Style=Strip`). Copy the control tree from a
+shipped form that does exactly this rather than guessing.
 
 ---
 

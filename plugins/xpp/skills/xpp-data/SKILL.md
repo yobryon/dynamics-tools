@@ -121,6 +121,19 @@ info(strFmt('%1', custTable.CreditMax));  // sum is in CreditMax
 - Only integer and real fields can be aggregated.
 - `sum` returning `null` in standard SQL returns **no row at all**
   in X++ (X++ has no `null` for database values).
+- **`SysQuery::countTotal` only counts on a SINGLE-datasource query — on a
+  joined query it silently returns garbage (the sum of RecIds), not a row
+  count.** `countPrim` (what `countTotal` calls) adds a `Count` aggregate only
+  when `dataSourceCount() == 1`; with joins it falls through to a loop that does
+  `counter += common.RecId`, summing ~5.6e9-scale RecId values. No error — just
+  a wrong, huge number. For a count over a query with joins, add the aggregate
+  yourself on the root datasource and read it back:
+  ```xpp
+  qbds.fields().dynamic(NoYes::No);
+  qbds.fields().clearFieldList();
+  qbds.fields().addSelectionField(fieldNum(MyTable, RecId), SelectionField::Count);
+  // run, then read the Count off the first row
+  ```
 
 ---
 
