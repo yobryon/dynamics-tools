@@ -460,7 +460,8 @@ public sealed record TableFieldGroup
     [Description("Free-form tag string.")]
     public string? Tags { get; init; }
 
-    [Description("Ordered list of field names in the group.")]
+    [Description("Ordered list of field names in the group. Bare strings (\"Name\") are canonical; {\"dataField\":\"Name\"} objects are also accepted and normalized.")]
+    [System.Text.Json.Serialization.JsonConverter(typeof(Xpp.Service.Domain.LenientStringListConverter))]
     public List<string>? Fields { get; init; }
 }
 

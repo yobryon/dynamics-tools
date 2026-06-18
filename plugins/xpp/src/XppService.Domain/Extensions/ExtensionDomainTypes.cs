@@ -52,7 +52,8 @@ public sealed record FieldGroupExtension
 {
     [Description("Name of the existing field group being extended (e.g. 'AutoReport').")]
     public string Name { get; init; } = string.Empty;
-    [Description("Field names to add to the existing group.")]
+    [Description("Field names to add to the existing group. Bare strings are canonical; {\"dataField\":\"Name\"} objects are also accepted and normalized.")]
+    [System.Text.Json.Serialization.JsonConverter(typeof(Xpp.Service.Domain.LenientStringListConverter))]
     public List<string>? Fields { get; init; }
     public string? Tags { get; init; }
 }
