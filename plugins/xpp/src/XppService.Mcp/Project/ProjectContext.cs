@@ -566,9 +566,17 @@ public sealed class ProjectContext
             if (resolved == null) return null;
             var doc = System.Xml.Linq.XDocument.Load(resolved.RnprojPath);
             var ns = (System.Xml.Linq.XNamespace)"http://schemas.microsoft.com/developer/msbuild/2003";
-            var el = doc.Root?.Elements(ns + "PropertyGroup")
-                .Elements(ns + "DBSyncInBuild").FirstOrDefault();
-            return el == null ? "True (default; element absent)" : el.Value;
+            var els = doc.Root?.Elements(ns + "PropertyGroup")
+                .Elements(ns + "DBSyncInBuild").ToList();
+            if (els == null || els.Count == 0) return "True (default; element absent)";
+            // MSBuild is last-assignment-wins, so the EFFECTIVE value is the last
+            // occurrence — not the first. Reading the first is what made the tool
+            // disagree with the build when duplicates carried different values.
+            var effective = els[els.Count - 1].Value;
+            if (els.Count > 1 && els.Select(e => e.Value).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                return $"{effective} (effective; WARNING: {els.Count} conflicting <DBSyncInBuild> elements " +
+                       $"[{string.Join(", ", els.Select(e => e.Value))}] — run xpp_project_set_db_sync_in_build to normalize)";
+            return effective;
         }
         catch { return null; }
     }
@@ -589,12 +597,33 @@ public sealed class ProjectContext
             ?? throw new ProjectConfigException("rnrproj has no <PropertyGroup> element. Refusing to invent one.");
 
         var newValue = enable ? "True" : "False";
-        var existing = firstPropGroup.Element(ns + "DBSyncInBuild");
-        var previousValue = existing?.Value ?? "(absent — defaults to True)";
-        if (existing != null) existing.SetValue(newValue);
-        else firstPropGroup.Add(new System.Xml.Linq.XElement(ns + "DBSyncInBuild", newValue));
-
         var warnings = new List<string>();
+
+        // Set EVERY <DBSyncInBuild> across ALL PropertyGroups — not just the
+        // first. MSBuild evaluates properties top-to-bottom with last-assignment
+        // wins, so a stale later occurrence in another PropertyGroup silently
+        // governs the build. Setting only the first reported success while the
+        // effective value stayed wrong (schema sync never ran). Set all so the
+        // effective value is unambiguous; add one to the first group only when
+        // none exist.
+        var allExisting = doc.Root!.Elements(ns + "PropertyGroup")
+            .Elements(ns + "DBSyncInBuild").ToList();
+        string previousValue;
+        if (allExisting.Count > 0)
+        {
+            previousValue = allExisting.Count == 1
+                ? allExisting[0].Value
+                : $"[{allExisting.Count} occurrences: {string.Join(", ", allExisting.Select(e => e.Value))}]";
+            foreach (var e in allExisting) e.SetValue(newValue);
+            if (allExisting.Count > 1)
+                warnings.Add($"rnrproj had {allExisting.Count} <DBSyncInBuild> elements across PropertyGroups " +
+                             $"(MSBuild uses the last); set all to {newValue} so the effective value is unambiguous.");
+        }
+        else
+        {
+            previousValue = "(absent — defaults to True)";
+            firstPropGroup.Add(new System.Xml.Linq.XElement(ns + "DBSyncInBuild", newValue));
+        }
         try
         {
             var scm = await ScmCheckoutPathAsync(resolved.RnprojPath, ct).ConfigureAwait(false);
