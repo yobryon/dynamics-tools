@@ -58,10 +58,11 @@ public sealed class FormDomainTools
         catch (RpcException rx) { return BridgeFailure("AxForm", "create_form", rx); }
 
         var sideEffects = await RecordPostWriteAsync("AxForm", resp.Name, createdHere: true, ct).ConfigureAwait(false);
+        var warnings = sideEffects.Warnings.Concat(FormBindingCheck.UnboundGridColumns(domainJson)).ToList();
         return WriteResponseSerializer.Serialize(resp, "create",
             addedToProject: sideEffects.AddedToProject,
             changesetUpdated: sideEffects.ChangesetUpdated,
-            sideEffectWarnings: sideEffects.Warnings);
+            sideEffectWarnings: warnings);
     }
 
     [McpServerTool(Name = "xpp_get_form"), Description(
@@ -149,6 +150,7 @@ public sealed class FormDomainTools
         var sideEffects = await RecordPostWriteAsync("AxForm", resp.Name, createdHere: false, ct).ConfigureAwait(false);
         var warnings = sideEffects.Warnings.ToList();
         if (scmPreWarning != null) warnings.Insert(0, $"scm: {scmPreWarning}");
+        warnings.AddRange(FormBindingCheck.UnboundGridColumns(patchJson));
         return WriteResponseSerializer.Serialize(resp, "patch",
             addedToProject: null,
             changesetUpdated: sideEffects.ChangesetUpdated,
