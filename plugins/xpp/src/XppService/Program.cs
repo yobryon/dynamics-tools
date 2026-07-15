@@ -232,7 +232,11 @@ try
     // (comma-separated list) when working on a localization.
     var labelLanguages = (builder.Configuration["XppService:LabelLanguages"] ?? "en-US")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    builder.Services.AddSingleton(new IndexerOptions { LabelLanguages = labelLanguages });
+    builder.Services.AddSingleton(new IndexerOptions
+    {
+        LabelLanguages = labelLanguages,
+        PackagesLocalDirectory = packagesPath,
+    });
     builder.Services.AddSingleton<Indexer>();
 
     // Service-managed indexing lifecycle. Owns bootstrap-on-startup, lazy

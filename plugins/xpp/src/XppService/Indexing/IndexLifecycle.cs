@@ -156,14 +156,14 @@ public sealed class IndexLifecycle : IDisposable
         }
 
         _logger.LogInformation(
-            "Index populated but stale (last sweep {Mins:F1}m ago) — queuing startup refresh sweep",
+            "Index populated but stale (last sweep {Mins:F1}m ago) — queuing startup reconcile sweep",
             sinceLast.TotalMinutes);
         _ = Task.Run(async () =>
         {
             try
             {
-                await RunSweepAsync(forceFull: false, serviceShutdown).ConfigureAwait(false);
-                _logger.LogInformation("Startup refresh sweep complete");
+                await RunSweepAsync(forceFull: false, serviceShutdown, reconcile: true).ConfigureAwait(false);
+                _logger.LogInformation("Startup reconcile sweep complete");
             }
             catch (Exception ex)
             {
@@ -226,7 +226,7 @@ public sealed class IndexLifecycle : IDisposable
     /// runs in incremental mode — objects with up-to-date methods are
     /// skipped.
     /// </summary>
-    private async Task RunSweepAsync(bool forceFull, CancellationToken ct)
+    private async Task RunSweepAsync(bool forceFull, CancellationToken ct, bool reconcile = false)
     {
         if (!await _sweepGate.WaitAsync(0, ct).ConfigureAwait(false))
         {
@@ -236,12 +236,19 @@ public sealed class IndexLifecycle : IDisposable
         _sweepInProgress = true;
         try
         {
-            // Phase 1 always runs cheaply (filesystem walk). Phase 2 is
-            // the expensive part; incremental=!forceFull skips objects
-            // already processed unless their on-disk timestamp is newer
-            // than their indexed timestamp.
+            // Phase 1 inventories models + objects (inserts new, cheap).
+            // When reconcile is set, an on-disk change pass then resets
+            // last_phase2_at=0 for objects whose content file actually changed
+            // since we indexed it (an SDK update / GET LATEST while we were
+            // down) — without it the incremental Phase 2 only picks up
+            // never-visited rows. Phase 2 (incremental=!forceFull) then
+            // re-reads exactly the invalidated + new set.
             var progress = new SinkReporter();
-            await _indexer.RunPhase1Async(progress, ct, Array.Empty<string>()).ConfigureAwait(false);
+            await _indexer.RunPhase1Async(progress, ct, Array.Empty<string>(), pruneDeleted: reconcile).ConfigureAwait(false);
+            if (reconcile)
+            {
+                await _indexer.InvalidateChangedObjectsAsync(progress, ct).ConfigureAwait(false);
+            }
             await _indexer.RunPhase2Async(progress, ct, Array.Empty<string>(),
                 maxObjectsPhase2: 0,
                 incremental: !forceFull).ConfigureAwait(false);

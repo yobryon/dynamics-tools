@@ -209,12 +209,20 @@ public sealed class Embedder : BackgroundService
         }
         else
         {
+            // Hash-aware, transition-safe: re-embed a label with no vector yet,
+            // OR one whose stored value_hash no longer matches the embedded
+            // chunk_text_hash. The value_hash<>'' guard means rows predating the
+            // value_hash column (backfilled lazily on their next re-index) keep
+            // their existing valid vector until the value actually changes —
+            // no mass re-embed on the schema upgrade. value_hash and
+            // chunk_text_hash are the same SHA-256(value), so they compare
+            // directly.
             cmd.CommandText = @"
                 SELECT l.id, l.value
                 FROM labels l
                 LEFT JOIN label_embedding_meta em
                     ON em.label_id = l.id AND em.chunk_index = 0 AND em.model_version = $ver
-                WHERE em.id IS NULL
+                WHERE (em.id IS NULL OR (l.value_hash <> '' AND em.chunk_text_hash <> l.value_hash))
                   AND length(trim(l.value)) > 0
                 LIMIT $lim;";
         }

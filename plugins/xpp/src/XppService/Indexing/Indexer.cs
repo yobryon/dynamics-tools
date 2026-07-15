@@ -26,6 +26,7 @@ public sealed class Indexer
     private readonly IndexWriter _writer;
     private readonly ILogger<Indexer> _logger;
     private readonly IReadOnlyList<string> _labelLanguages;
+    private readonly string _packagesDir;
 
     public Indexer(BridgeClient bridge, BridgePool pool, IndexWriter writer, ILogger<Indexer> logger, IndexerOptions? options = null)
     {
@@ -34,12 +35,14 @@ public sealed class Indexer
         _writer = writer;
         _logger = logger;
         _labelLanguages = options?.LabelLanguages ?? new[] { "en-US" };
+        _packagesDir = options?.PackagesLocalDirectory ?? string.Empty;
     }
 
     public async Task<IndexRunSummary> RunPhase1Async(
         IProgress<IndexProgressEvent>? progress,
         CancellationToken ct,
-        IReadOnlyCollection<string>? modelsFilter = null)
+        IReadOnlyCollection<string>? modelsFilter = null,
+        bool pruneDeleted = false)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         progress?.Report(new IndexProgressEvent("starting", "", "", 0, 0, false, "phase 1: inventory"));
@@ -76,6 +79,7 @@ public sealed class Indexer
         // is the burst the dynamic pool exists for, so fan out to Max and let
         // the scaler ramp the live worker count up to meet it (it starts at Min).
         long totalObjects = 0;
+        long totalPruned = 0;
         var phase1Parallelism = Math.Max(1, _pool.Max);
         var phase1Opts = new ParallelOptions
         {
@@ -86,6 +90,7 @@ public sealed class Indexer
         await Parallel.ForEachAsync(models, phase1Opts, async (model, workerCt) =>
         {
             var modelObjects = new List<(string AxType, string Name, string Source)>();
+            var succeededTypes = new HashSet<string>(StringComparer.Ordinal);
             foreach (var axType in types)
             {
                 workerCt.ThrowIfCancellationRequested();
@@ -93,13 +98,18 @@ public sealed class Indexer
                 {
                     var entries = await _bridge.ListObjectsAsync(model.Name, axType, workerCt).ConfigureAwait(false);
                     foreach (var e in entries) modelObjects.Add((axType, e.Name, e.Source));
+                    // Enumeration succeeded (even if it returned nothing) — this
+                    // (model, type) is authoritative and safe to prune against.
+                    succeededTypes.Add(axType);
                 }
                 catch (BridgeRpcException ex)
                 {
                     // A type this model doesn't support, or a metadata
                     // reader that can't enumerate it. Log and move on; we
                     // don't want a single bad (model, type) pair to abort
-                    // the whole phase.
+                    // the whole phase. NOT added to succeededTypes, so a
+                    // transient enumeration failure can never prune that
+                    // type's objects.
                     _logger.LogWarning("listObjects({Model}, {Type}) failed: {Code} {Msg}",
                         model.Name, axType, ex.Code, ex.Message);
                 }
@@ -109,6 +119,27 @@ public sealed class Indexer
             {
                 await _writer.EnqueueAsync(conn => UpsertObjects(conn, model.Name, modelObjects), workerCt).ConfigureAwait(false);
                 Interlocked.Add(ref totalObjects, modelObjects.Count);
+            }
+
+            // Reconcile deletions: within each successfully-enumerated (model,
+            // type), remove index rows whose name the bridge no longer returns
+            // (an object deleted since the last index — e.g. a feature flight a
+            // platform update retired). Authoritative: driven by ListObjects,
+            // not by disk-file absence. Gated on pruneDeleted so only the
+            // startup reconcile prunes; a plain sweep never does.
+            if (pruneDeleted && succeededTypes.Count > 0)
+            {
+                var namesByType = modelObjects
+                    .GroupBy(o => o.AxType, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.Select(o => o.Name).ToArray(), StringComparer.Ordinal);
+                var removed = await _writer.EnqueueAsync(
+                    conn => PruneDeletedObjects(conn, model.Name, namesByType, succeededTypes), workerCt)
+                    .ConfigureAwait(false);
+                if (removed > 0)
+                {
+                    Interlocked.Add(ref totalPruned, removed);
+                    _logger.LogInformation("Reconcile pruned {N} deleted object(s) from {Model}", removed, model.Name);
+                }
             }
 
             progress?.Report(new IndexProgressEvent(
@@ -125,10 +156,180 @@ public sealed class Indexer
             "phase1-complete", "", "", totalObjects, 0, false,
             $"phase 1 done: {totalObjects} objects across {models.Count} models in {sw.Elapsed.TotalSeconds:F1}s"));
 
-        _logger.LogInformation("Indexer phase 1 complete: {Models} models, {Objects} objects in {Seconds}s",
-            models.Count, totalObjects, sw.Elapsed.TotalSeconds);
+        _logger.LogInformation("Indexer phase 1 complete: {Models} models, {Objects} objects, {Pruned} pruned in {Seconds}s",
+            models.Count, totalObjects, totalPruned, sw.Elapsed.TotalSeconds);
         return summary;
     }
+
+    /// <summary>
+    /// Delete index rows for a model that the bridge no longer enumerates.
+    /// Scoped to the types we successfully listed this pass (a failed
+    /// enumeration leaves that type untouched). For each such type, the current
+    /// name set is passed as JSON and anything in the index NOT in it is removed
+    /// — cascading to methods/refs/labels/embeddings via the schema's ON DELETE
+    /// CASCADE. An empty name set for a successfully-enumerated type correctly
+    /// prunes every row of that type for the model (they're genuinely gone).
+    /// Returns the number of object rows removed.
+    /// </summary>
+    private static int PruneDeletedObjects(
+        SqliteConnection conn, string model,
+        IReadOnlyDictionary<string, string[]> namesByType, IReadOnlyCollection<string> succeededTypes)
+    {
+        using var tx = conn.BeginTransaction();
+        using var del = conn.CreateCommand();
+        del.Transaction = tx;
+        del.CommandText =
+            "DELETE FROM objects WHERE model = $m AND ax_type = $t " +
+            "AND name NOT IN (SELECT value FROM json_each($names));";
+        var pM = del.Parameters.Add("$m",     SqliteType.Text);
+        var pT = del.Parameters.Add("$t",     SqliteType.Text);
+        var pN = del.Parameters.Add("$names", SqliteType.Text);
+        pM.Value = model;
+
+        var removed = 0;
+        foreach (var axType in succeededTypes)
+        {
+            var names = namesByType.TryGetValue(axType, out var arr) ? arr : Array.Empty<string>();
+            pT.Value = axType;
+            pN.Value = System.Text.Json.JsonSerializer.Serialize(names);
+            removed += del.ExecuteNonQuery();
+        }
+        tx.Commit();
+        return removed;
+    }
+
+    /// <summary>
+    /// Startup reconcile (Layer A): for every indexed object, compare its
+    /// on-disk content file to what we last indexed and, when it genuinely
+    /// changed, reset last_phase2_at to 0 so the incremental Phase 2 re-reads
+    /// it. This is what catches an MS platform update (LCS, while we were down)
+    /// or a TFS GET LATEST that mutated already-indexed objects — the plain
+    /// incremental sweep only picks up never-visited rows.
+    ///
+    /// Signal: file mtime is a cheap gate (stat only), confirmed by a SHA-256
+    /// of the file bytes stored in objects.content_hash. Only files whose mtime
+    /// moved past their last_phase2_at are read+hashed, so a quiet startup does
+    /// almost no work. A file that moved but hashes identically (a re-extract)
+    /// is NOT re-read — we just refresh its hash/marker. Objects whose model
+    /// isn't on disk (binary/runtime-only) or whose file we can't locate are
+    /// left untouched and counted, never thrashed.
+    /// </summary>
+    public async Task InvalidateChangedObjectsAsync(IProgress<IndexProgressEvent>? progress, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_packagesDir) || !Directory.Exists(_packagesDir))
+        {
+            _logger.LogInformation("Reconcile skipped: PackagesLocalDirectory '{Dir}' not available", _packagesDir);
+            return;
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        progress?.Report(new IndexProgressEvent("reconcile-starting", "", "", 0, 0, false,
+            "reconcile: detecting changed objects on disk"));
+
+        // Snapshot the inventory up front so we stat/hash files outside the
+        // writer lock, then apply invalidations in batches.
+        var rows = await _writer.EnqueueAsync(conn =>
+        {
+            var list = new List<ReconcileRow>();
+            using var cmd = conn.CreateCommand();
+            // Only disk-backed objects can be reconciled against a file.
+            // Runtime-only objects (source='runtime', compiled provider) have no
+            // XML on disk; they change only with their binary module's version,
+            // which disk hashing can't observe, so we exclude them here rather
+            // than count them all as "missing".
+            cmd.CommandText =
+                "SELECT id, model, ax_type, name, last_phase2_at, content_hash " +
+                "FROM objects WHERE source = 'disk';";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add(new ReconcileRow(
+                    reader.GetInt64(0), reader.GetString(1), reader.GetString(2),
+                    reader.GetString(3), reader.GetInt64(4),
+                    reader.IsDBNull(5) ? string.Empty : reader.GetString(5)));
+            }
+            return list;
+        }, ct).ConfigureAwait(false);
+
+        var knownModels = new HashSet<string>(rows.Select(r => r.Model), StringComparer.OrdinalIgnoreCase);
+        var roots = DiskReconciler.BuildModelRoots(_packagesDir, knownModels);
+        _logger.LogInformation("Reconcile: {Objects} objects, {Models} models, {Mapped} model roots resolved on disk",
+            rows.Count, knownModels.Count, roots.Count);
+
+        long hashed = 0, changed = 0, touchedIdentical = 0, unresolved = 0, missing = 0;
+        var updates = new List<(long Id, long Phase2, string Hash)>();
+
+        async Task FlushAsync()
+        {
+            if (updates.Count == 0) return;
+            var batch = updates.ToArray();
+            updates.Clear();
+            await _writer.EnqueueAsync(conn =>
+            {
+                using var tx = conn.BeginTransaction();
+                using var upd = conn.CreateCommand();
+                upd.Transaction = tx;
+                upd.CommandText = "UPDATE objects SET last_phase2_at = $p2, content_hash = $h WHERE id = $id;";
+                var pP2 = upd.Parameters.Add("$p2", SqliteType.Integer);
+                var pH  = upd.Parameters.Add("$h",  SqliteType.Text);
+                var pId = upd.Parameters.Add("$id", SqliteType.Integer);
+                foreach (var (id, p2, hash) in batch)
+                {
+                    pP2.Value = p2; pH.Value = hash; pId.Value = id;
+                    upd.ExecuteNonQuery();
+                }
+                tx.Commit();
+                return true;
+            }, ct).ConfigureAwait(false);
+        }
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        foreach (var r in rows)
+        {
+            ct.ThrowIfCancellationRequested();
+            var path = DiskReconciler.ContentFilePath(roots, r.Model, r.AxType, r.Name);
+            if (path == null) { unresolved++; continue; }          // binary/runtime-only model
+
+            FileInfo fi;
+            try { fi = new FileInfo(path); if (!fi.Exists) { missing++; continue; } }
+            catch { missing++; continue; }
+
+            var mtime = new DateTimeOffset(fi.LastWriteTimeUtc).ToUnixTimeSeconds();
+            if (mtime <= r.LastPhase2At) continue;                 // untouched since last index — stat only
+
+            string hash;
+            try { hash = DiskReconciler.HashFile(path); hashed++; }
+            catch { missing++; continue; }
+
+            if (!string.IsNullOrEmpty(r.ContentHash) && string.Equals(hash, r.ContentHash, StringComparison.Ordinal))
+            {
+                // Touched but identical (a re-extract). Don't re-read; just
+                // refresh the marker so we stop re-checking it every startup.
+                touchedIdentical++;
+                updates.Add((r.Id, now, hash));
+            }
+            else
+            {
+                // Real change (or no baseline hash yet). Invalidate so the
+                // incremental Phase 2 re-reads it; record the new baseline.
+                changed++;
+                updates.Add((r.Id, 0, hash));
+            }
+            if (updates.Count >= 5000) await FlushAsync().ConfigureAwait(false);
+        }
+        await FlushAsync().ConfigureAwait(false);
+
+        sw.Stop();
+        _logger.LogInformation(
+            "Reconcile done in {Sec:F1}s: {Changed} changed, {Same} touched-identical, {Hashed} hashed, " +
+            "{Unresolved} off-disk (binary model), {Missing} file-gone (likely deleted; pruned by the deletion pass)",
+            sw.Elapsed.TotalSeconds, changed, touchedIdentical, hashed, unresolved, missing);
+        progress?.Report(new IndexProgressEvent("reconcile-complete", "", "", changed, rows.Count, false,
+            $"reconcile: {changed} changed objects flagged for re-index ({touchedIdentical} touched-identical skipped)"));
+    }
+
+    private readonly record struct ReconcileRow(
+        long Id, string Model, string AxType, string Name, long LastPhase2At, string ContentHash);
 
     /// <summary>
     /// Phase 2: for each object already in the inventory, fetch its methods
@@ -712,10 +913,18 @@ public sealed class Indexer
         delLabelRefs.CommandText = "DELETE FROM label_refs WHERE source_object_id = $id;";
         var dlrId = delLabelRefs.Parameters.Add("$id", SqliteType.Integer);
 
-        using var delLabels = conn.CreateCommand();
-        delLabels.Transaction = tx;
-        delLabels.CommandText = "DELETE FROM labels WHERE label_file_id = $id;";
-        var dlId = delLabels.Parameters.Add("$id", SqliteType.Integer);
+        // Labels are embedded (label_vec), so like methods they're upserted by
+        // their natural key (label_file_id, key, language) to preserve row ids
+        // and keep unchanged values from re-embedding. We prune only the labels
+        // that vanished from the file's new projection. The key set is passed
+        // lowercased ("key  language") to mirror the NOCASE UNIQUE index.
+        using var delRemovedLabels = conn.CreateCommand();
+        delRemovedLabels.Transaction = tx;
+        delRemovedLabels.CommandText =
+            "DELETE FROM labels WHERE label_file_id = $id " +
+            "AND (lower(key) || char(1) || lower(language)) NOT IN (SELECT value FROM json_each($keys));";
+        var dlrmId   = delRemovedLabels.Parameters.Add("$id",   SqliteType.Integer);
+        var dlrmKeys = delRemovedLabels.Parameters.Add("$keys", SqliteType.Text);
 
         // Per-object Phase 2 marker — see Schema/004-phase2-marker.sql.
         using var markProcessed = conn.CreateCommand();
@@ -801,31 +1010,36 @@ public sealed class Indexer
         using var insLabel = conn.CreateCommand();
         insLabel.Transaction = tx;
         insLabel.CommandText = @"
-            INSERT INTO labels (label_file_id, key, value, language, description)
-            VALUES ($fid, $key, $val, $lang, $desc);
+            INSERT INTO labels (label_file_id, key, value, language, description, value_hash)
+            VALUES ($fid, $key, $val, $lang, $desc, $vhash)
+            ON CONFLICT(label_file_id, key, language) DO UPDATE SET
+                value       = excluded.value,
+                description = excluded.description,
+                value_hash  = excluded.value_hash
+            WHERE labels.value_hash <> excluded.value_hash;
         ";
-        var lFid  = insLabel.Parameters.Add("$fid",  SqliteType.Integer);
-        var lKey  = insLabel.Parameters.Add("$key",  SqliteType.Text);
-        var lVal  = insLabel.Parameters.Add("$val",  SqliteType.Text);
-        var lLang = insLabel.Parameters.Add("$lang", SqliteType.Text);
-        var lDesc = insLabel.Parameters.Add("$desc", SqliteType.Text);
+        var lFid   = insLabel.Parameters.Add("$fid",   SqliteType.Integer);
+        var lKey   = insLabel.Parameters.Add("$key",   SqliteType.Text);
+        var lVal   = insLabel.Parameters.Add("$val",   SqliteType.Text);
+        var lLang  = insLabel.Parameters.Add("$lang",  SqliteType.Text);
+        var lDesc  = insLabel.Parameters.Add("$desc",  SqliteType.Text);
+        var lVHash = insLabel.Parameters.Add("$vhash", SqliteType.Text);
 
         foreach (var item in batch)
         {
             if (!freshInsert)
             {
-                // Methods are pruned after the upsert loop (delRemovedMethods),
-                // not wiped here — see Layer B note above. Refs/field-refs/
-                // label-refs/labels aren't embedded, so delete-and-reinsert is
-                // harmless for them and stays.
+                // Methods and labels are embedded, so they're upserted in place
+                // and pruned after their loops (delRemovedMethods /
+                // delRemovedLabels) to preserve ids and keep their embeddings.
+                // Refs / field-refs / label-refs aren't embedded, so
+                // delete-and-reinsert is harmless for them and stays.
                 drId.Value = item.ObjectId;
                 delRefs.ExecuteNonQuery();
                 dfrId.Value = item.ObjectId;
                 delFieldRefs.ExecuteNonQuery();
                 dlrId.Value = item.ObjectId;
                 delLabelRefs.ExecuteNonQuery();
-                dlId.Value = item.ObjectId;
-                delLabels.ExecuteNonQuery();
             }
 
             mOid.Value = item.ObjectId;
@@ -911,27 +1125,42 @@ public sealed class Indexer
             mpId.Value = item.ObjectId;
             markProcessed.ExecuteNonQuery();
 
-            if (item.Labels.Count > 0)
+            // Labels: upsert in place (id preserved so the label's embedding
+            // survives; the DO UPDATE ... WHERE value_hash guard makes an
+            // unchanged value a no-op), then prune vanished keys. Runs for
+            // every object — for a non-label object item.Labels is empty, so the
+            // upsert loop does nothing and the prune (keyed on label_file_id,
+            // index-backed) matches no rows.
+            lFid.Value = item.ObjectId;
+            var labelKeys = new List<string>(item.Labels.Count);
+            foreach (var lab in item.Labels)
             {
-                lFid.Value = item.ObjectId;
-                foreach (var lab in item.Labels)
+                if (string.IsNullOrEmpty(lab.Key)) continue;
+                var val  = lab.Value ?? string.Empty;
+                var lang = lab.Language ?? "en-US";
+                lKey.Value   = lab.Key;
+                lVal.Value   = val;
+                lLang.Value  = lang;
+                lDesc.Value  = (object?)lab.Description ?? DBNull.Value;
+                lVHash.Value = Sha256(val);
+                labelKeys.Add(lab.Key.ToLowerInvariant() + (char)1 + lang.ToLowerInvariant());
+                try
                 {
-                    if (string.IsNullOrEmpty(lab.Key)) continue;
-                    lKey.Value  = lab.Key;
-                    lVal.Value  = lab.Value ?? string.Empty;
-                    lLang.Value = lab.Language ?? "en-US";
-                    lDesc.Value = (object?)lab.Description ?? DBNull.Value;
-                    try
-                    {
-                        insLabel.ExecuteNonQuery();
-                    }
-                    catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
-                    {
-                        // Duplicate (label_file, key, language). Rare; the
-                        // bridge may have surfaced the same key twice from a
-                        // multi-pass projection. Skip silently.
-                    }
+                    insLabel.ExecuteNonQuery();
                 }
+                catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+                {
+                    // Duplicate (label_file, key, language) within one
+                    // projection. Rare; the bridge may surface the same key
+                    // twice. The upsert handled the first; skip the dupe.
+                }
+            }
+
+            if (!freshInsert)
+            {
+                dlrmId.Value   = item.ObjectId;
+                dlrmKeys.Value = System.Text.Json.JsonSerializer.Serialize(labelKeys);
+                delRemovedLabels.ExecuteNonQuery();
             }
         }
 
@@ -994,6 +1223,14 @@ public sealed class IndexerOptions
     /// in appsettings (comma-separated).
     /// </summary>
     public IReadOnlyList<string> LabelLanguages { get; init; } = new[] { "en-US" };
+
+    /// <summary>
+    /// D365 PackagesLocalDirectory root. Used by the startup reconcile to
+    /// locate and hash each object's on-disk content file for change
+    /// detection. Empty disables disk-based reconcile (the sweep still runs,
+    /// but only picks up never-visited objects).
+    /// </summary>
+    public string PackagesLocalDirectory { get; init; } = string.Empty;
 }
 
 public sealed record IndexProgressEvent(
