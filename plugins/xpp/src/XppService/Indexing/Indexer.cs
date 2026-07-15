@@ -583,9 +583,10 @@ public sealed class Indexer
             {
                 new Phase2Result(objectId, prepared, full.References, fieldRefs, labelRefs, Array.Empty<BridgeLabelEntry>())
             };
-            // freshInsert=false: existing rows for this object get DELETEd
-            // before reinsert (the path also clears field_refs / label_refs
-            // for the same object_id).
+            // freshInsert=false: methods are upserted in place (ids preserved,
+            // unchanged bodies keep their embeddings), vanished methods pruned;
+            // refs / field_refs / label_refs are cleared and reinserted for
+            // this object_id.
             UpsertObjectChildrenBatch(conn, batch, freshInsert: false);
         }, ct).ConfigureAwait(false);
 
@@ -681,10 +682,20 @@ public sealed class Indexer
         // so we can skip the DELETEs entirely. Each skipped DELETE is one
         // less statement to parse + one less B-tree probe per row, plus the
         // WAL doesn't have to log a no-op tombstone. Small but free.
-        using var delMethods = conn.CreateCommand();
-        delMethods.Transaction = tx;
-        delMethods.CommandText = "DELETE FROM methods WHERE object_id = $id;";
-        var dmId = delMethods.Parameters.Add("$id", SqliteType.Integer);
+        // Layer B: methods are UPSERTed by (object_id, name) rather than
+        // deleted-and-reinserted, so a surviving method keeps its row id.
+        // Keeping the id keeps its method_embedding_meta / method_vec rows
+        // valid, so an unchanged body is never re-embedded on a re-index (the
+        // embedder only re-embeds when chunk_text_hash <> source_hash). We no
+        // longer wipe every method up front; instead we prune just the ones
+        // that vanished from this object's new projection.
+        using var delRemovedMethods = conn.CreateCommand();
+        delRemovedMethods.Transaction = tx;
+        delRemovedMethods.CommandText =
+            "DELETE FROM methods WHERE object_id = $id " +
+            "AND name NOT IN (SELECT value FROM json_each($names));";
+        var drmId    = delRemovedMethods.Parameters.Add("$id",    SqliteType.Integer);
+        var drmNames = delRemovedMethods.Parameters.Add("$names", SqliteType.Text);
 
         using var delRefs = conn.CreateCommand();
         delRefs.Transaction = tx;
@@ -722,7 +733,16 @@ public sealed class Indexer
                  source_code, source_hash, line_count, parameters_json)
             VALUES
                 ($oid, $name, $sig, $isStatic, $access, $rtype,
-                 $src, $hash, $lc, NULL);
+                 $src, $hash, $lc, NULL)
+            ON CONFLICT(object_id, name) DO UPDATE SET
+                signature    = excluded.signature,
+                is_static    = excluded.is_static,
+                access_level = excluded.access_level,
+                return_type  = excluded.return_type,
+                source_code  = excluded.source_code,
+                source_hash  = excluded.source_hash,
+                line_count   = excluded.line_count
+            WHERE methods.source_hash <> excluded.source_hash;
         ";
         var mOid    = insMethod.Parameters.Add("$oid",      SqliteType.Integer);
         var mName   = insMethod.Parameters.Add("$name",     SqliteType.Text);
@@ -794,8 +814,10 @@ public sealed class Indexer
         {
             if (!freshInsert)
             {
-                dmId.Value = item.ObjectId;
-                delMethods.ExecuteNonQuery();
+                // Methods are pruned after the upsert loop (delRemovedMethods),
+                // not wiped here — see Layer B note above. Refs/field-refs/
+                // label-refs/labels aren't embedded, so delete-and-reinsert is
+                // harmless for them and stays.
                 drId.Value = item.ObjectId;
                 delRefs.ExecuteNonQuery();
                 dfrId.Value = item.ObjectId;
@@ -819,13 +841,31 @@ public sealed class Indexer
                 mLc.Value     = m.LineCount;
                 try
                 {
+                    // Upsert: inserts a new method, updates a changed one in
+                    // place (id preserved), and is a true no-op for an
+                    // unchanged body (the DO UPDATE ... WHERE guard skips it,
+                    // so no trigger fires and the embedding stays valid).
                     insMethod.ExecuteNonQuery();
                 }
                 catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
                 {
-                    // Duplicate method name on same object — rare metadata
-                    // anomaly. Skip; the rest of the batch still applies.
+                    // Belt-and-suspenders: the (object_id, name) conflict is
+                    // handled by the upsert, so this should not fire; kept in
+                    // case some other constraint ever trips on a bad projection.
                 }
+            }
+
+            // Prune methods that disappeared from this object's new projection
+            // (renamed or removed). Surviving methods were upserted in place
+            // above and keep their ids/embeddings. Skipped on a fresh insert
+            // where no prior rows exist. An empty method set serializes to
+            // "[]", which correctly deletes all of the object's old methods.
+            if (!freshInsert)
+            {
+                drmId.Value    = item.ObjectId;
+                drmNames.Value = System.Text.Json.JsonSerializer.Serialize(
+                    item.Methods.Select(m => m.Name).ToArray());
+                delRemovedMethods.ExecuteNonQuery();
             }
 
             rOid.Value = item.ObjectId;
