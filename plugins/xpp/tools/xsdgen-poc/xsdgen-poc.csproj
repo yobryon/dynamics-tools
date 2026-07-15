@@ -8,8 +8,8 @@
   <!-- POC override: copy referenced assemblies locally so dotnet run can load them -->
   <Target Name="OverridePrivate" AfterTargets="ResolveReferences">
     <ItemGroup>
-      <ReferenceCopyLocalPaths Include="$(D365ExtensionPath)\Microsoft.Dynamics.AX.Metadata.dll" />
-      <ReferenceCopyLocalPaths Include="$(D365ExtensionPath)\Microsoft.Dynamics.AX.Metadata.Core.dll" />
+      <ReferenceCopyLocalPaths Include="$(D365RefPath)\Microsoft.Dynamics.AX.Metadata.dll" />
+      <ReferenceCopyLocalPaths Include="$(D365RefPath)\Microsoft.Dynamics.AX.Metadata.Core.dll" />
     </ItemGroup>
   </Target>
 </Project>

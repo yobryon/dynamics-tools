@@ -38,17 +38,19 @@ namespace XppMetadataBridge
             Console.InputEncoding = Encoding.UTF8;
             Console.OutputEncoding = Encoding.UTF8;
 
-            // Hook the D365 metadata DLL resolver BEFORE we touch any handler
-            // that references Microsoft.Dynamics.AX.Metadata.*. The resolver
-            // only fires on names .NET hasn't already loaded, so installing
-            // it early means the first metadata-touching call gets it right.
-            AssemblyProbe.HookResolve();
-
             // Parse --packages= and --custom= from the command line. The
             // service passes these when spawning us; if a developer launches
             // the bridge manually for debugging, ping still works without
             // them but metadata RPCs return MetadataUnavailable.
             var config = BridgeConfig.FromArgs(args);
+
+            // Hook the D365 metadata DLL resolver BEFORE we touch any handler
+            // that references Microsoft.Dynamics.AX.Metadata.*. The resolver
+            // only fires on names .NET hasn't already loaded, so installing
+            // it early means the first metadata-touching call gets it right.
+            // Primary probe root is <packages>\bin (stable across SDK updates);
+            // the VS extension folder is a fallback (see AssemblyProbe).
+            AssemblyProbe.HookResolve(config.PackagesLocalDirectory);
             var providers = new MetadataProviderHost(config);
             var domainRegistry = new XppMetadataBridge.Metadata.Domain.DomainMapperRegistry();
 
