@@ -301,10 +301,19 @@ public sealed class Indexer
             try { hash = DiskReconciler.HashFile(path); hashed++; }
             catch { missing++; continue; }
 
-            if (!string.IsNullOrEmpty(r.ContentHash) && string.Equals(hash, r.ContentHash, StringComparison.Ordinal))
+            if (r.LastPhase2At != 0
+                && !string.IsNullOrEmpty(r.ContentHash)
+                && string.Equals(hash, r.ContentHash, StringComparison.Ordinal))
             {
                 // Touched but identical (a re-extract). Don't re-read; just
                 // refresh the marker so we stop re-checking it every startup.
+                // The last_phase2_at != 0 guard is essential: an object flagged
+                // by a PRIOR (interrupted) reconcile has content_hash set to the
+                // new file hash but its methods not yet re-read (last_phase2_at
+                // still 0). Without the guard we'd see hash == content_hash and
+                // wrongly un-flag it, stranding stale content. A not-yet-
+                // processed object always falls through to the changed branch
+                // below and stays flagged until Phase 2 actually re-reads it.
                 touchedIdentical++;
                 updates.Add((r.Id, now, hash));
             }
