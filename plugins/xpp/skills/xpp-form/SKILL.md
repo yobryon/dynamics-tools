@@ -67,7 +67,28 @@ form's declared `pattern`. Two things happen for you:
   - `overrides` — properties you set explicitly that the pattern
     overrode, with the value it won. Informational, not an error.
   - `mismatches` — rare residual the auto-stamp can't resolve.
-  `ok: true` with no `missing`/`mismatches` means the form conforms.
+  - `versionActive: false` (+ `activeVersions`, `versionNote`) — **the
+    version you declared is RETIRED.** Read this first and re-author with
+    an active version: everything else in the report was analysed against
+    the obsolete pattern, so its `missing`/`mismatches` may be artifacts.
+    Also leads `sideEffectWarnings`.
+  `ok: true` with no `missing`/`mismatches` means the form conforms —
+  **but only to the version you declared**, which is why `versionActive`
+  matters.
+
+**Pattern versions are platform-versioned and go stale.** MS retires
+pattern versions with platform updates, and a retired version stays
+*resolvable* — so declaring one gets you a clean-looking conformance
+report while the compiler, which validates against the ACTIVE pattern,
+rejects the form. The write tools read the active version live from MS's
+catalog, so **trust `versionActive` / `activeVersions` over any version
+number hard-coded in a skill** (including these ones — they're accurate
+at time of writing, not forever). Corollary at compile time: if you see
+the `BPUpgradeMetadataFormPatternVersionNotActive` *warning*, fix that
+before chasing the `PatternControlNotAllowed` /
+`PatternPropertyRequiredValue` *errors* next to it — they're usually
+downstream of the stale version, and chasing them leads you to
+restructure a form that was structurally fine.
 
 So when authoring, **focus on getting the structure right — the correct
 controls in the correct slots** — not on low-level layout/styling

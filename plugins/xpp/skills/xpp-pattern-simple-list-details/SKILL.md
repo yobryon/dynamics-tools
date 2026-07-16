@@ -133,7 +133,8 @@ Design
 Key `Design` properties:
 
 - `Pattern` — `SimpleListDetails`
-- `PatternVersion` — `1.1`
+- `PatternVersion` — `1.3` (the active version at time of writing — see
+  "Pattern versions move" below; trust the tool over this number)
 - `Style` — `SimpleListDetails`
 - `Caption`, `DataSource`, `TitleDataSource` — set normally.
 
@@ -235,7 +236,19 @@ See `dynamics-xpp:xpp-form-subpatterns` for the full reference (when written).
 - **List binding.** The grid binds to the master datasource; detail
   controls bind to the same datasource (showing more fields) or a
   joined datasource.
-- **`PatternVersion=1.1`.** Use this version with `SimpleListDetails`.
+- **Pattern versions move — trust the tool, not this number.** The platform
+  versions its patterns, and retires old ones with each update. `1.3` is the
+  active `SimpleListDetails` version at time of writing, and it's the version
+  that ALLOWS a details FastTabs tab — `1.1` does not, and is retired.
+  `xpp_create_form` / `xpp_patch_form` read the active version live from MS's
+  catalog: if you declare a retired one, the response leads its
+  `sideEffectWarnings` with "declared pattern version 'X' is NOT active
+  (active: Y)". **Believe that over any version hard-coded here.**
+  Corollary for compile errors: if the compiler emits
+  `BPUpgradeMetadataFormPatternVersionNotActive` (a *warning*), fix that FIRST —
+  the `PatternControlNotAllowed` / `PatternPropertyRequiredValue` *errors*
+  alongside it are usually downstream of the stale version, and chasing them
+  leads you to restructure a form that was structurally fine.
 - **All namespace rules from `dynamics-xpp:xpp-form` apply** — `xmlns=""` on
   controls and inner `<Design>` properties.
 - **Detail-header field order matches grid order.** First fields in
