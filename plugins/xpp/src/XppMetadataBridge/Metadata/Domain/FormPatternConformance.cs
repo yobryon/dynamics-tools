@@ -202,6 +202,31 @@ namespace XppMetadataBridge.Metadata.Domain
                 ["version"] = patternVersion,
                 ["ok"] = ok,
             };
+
+            // Is the DECLARED version still one the platform considers active?
+            // GetPatternByName happily resolves a retired version, so without
+            // this we'd analyze against an obsolete pattern and report ok=true
+            // while the compiler -- which validates against the ACTIVE pattern --
+            // rejects the form. That's how a stale pattern version masquerades
+            // as a structural mistake: the real signal is MS's
+            // BPUpgradeMetadataFormPatternVersionNotActive warning, and the
+            // PatternControlNotAllowed / PatternPropertyRequiredValue errors are
+            // downstream of it. Pattern versions are platform-versioned and move
+            // with updates, so this is read live from the catalog rather than
+            // pinned anywhere.
+            var activeVersions = ActiveVersions(patternName);
+            if (activeVersions.Count > 0 && !activeVersions.Contains(patternVersion))
+            {
+                jo["versionActive"] = false;
+                jo["activeVersions"] = new JArray(activeVersions.Cast<object>().ToArray());
+                jo["versionNote"] =
+                    $"declared pattern version '{patternVersion}' is NOT active for '{patternName}' " +
+                    $"(active: {string.Join(", ", activeVersions)}). Conformance above was analyzed against " +
+                    "the retired version, but the compiler validates against the active one — re-author with " +
+                    "the active version before chasing any PatternControlNotAllowed / " +
+                    "PatternPropertyRequiredValue errors, which are usually downstream of this.";
+            }
+
             if (missing.Count > 0) jo["missing"] = missing;
             if (overrides.Count > 0) jo["overrides"] = overrides;
             if (mismatches.Count > 0) jo["mismatches"] = mismatches;

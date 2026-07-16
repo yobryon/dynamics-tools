@@ -435,6 +435,20 @@ message PatternConformance {
   // Set only in the rare case the form declares a pattern with no shipped
   // definition — conformance couldn't be analyzed. Empty otherwise.
   string note = 7;
+  // False when the DECLARED version is no longer one the platform considers
+  // active. The pattern catalog keeps retired versions resolvable, so
+  // conformance above was analyzed against the retired pattern while the
+  // compiler validates against the active one — the classic cause of
+  // PatternControlNotAllowed / PatternPropertyRequiredValue errors that look
+  // structural but aren't. Defaults true (proto3 has no bool presence, and
+  // "active" is the overwhelmingly common case); only meaningful for a form
+  // with a declared pattern.
+  bool version_active = 8;
+  // The version(s) the platform currently considers active for this pattern,
+  // read live from the catalog. Populated only when version_active is false.
+  repeated string active_versions = 9;
+  // Human-readable explanation when version_active is false.
+  string version_note = 10;
 }
 
 message PatternMissing {

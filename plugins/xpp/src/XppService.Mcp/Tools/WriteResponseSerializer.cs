@@ -82,6 +82,12 @@ internal static class WriteResponseSerializer
             ["ok"] = pc.Ok,
         };
         if (!string.IsNullOrEmpty(pc.Note)) obj["note"] = pc.Note;
+        if (!pc.VersionActive)
+        {
+            obj["versionActive"] = false;
+            if (pc.ActiveVersions.Count > 0) obj["activeVersions"] = pc.ActiveVersions.ToArray();
+            if (!string.IsNullOrEmpty(pc.VersionNote)) obj["versionNote"] = pc.VersionNote;
+        }
         if (pc.Missing.Count > 0)
             obj["missing"] = pc.Missing.Select(m => new { path = m.Path, expected = m.Expected }).ToArray();
         if (pc.Overrides.Count > 0)
@@ -101,6 +107,16 @@ internal static class WriteResponseSerializer
 
     private static IEnumerable<string> ConformanceWarnings(PatternConformance pc)
     {
+        // Lead with a retired pattern version: everything else in this report
+        // was analyzed against the OBSOLETE pattern, so the missing/mismatch
+        // entries below it (and any pattern errors the next compile emits) may
+        // be artifacts of the stale version rather than real authoring gaps.
+        if (!pc.VersionActive)
+            yield return string.IsNullOrEmpty(pc.VersionNote)
+                ? $"pattern {pc.Pattern}: declared version '{pc.Version}' is not active" +
+                  (pc.ActiveVersions.Count > 0 ? $" (active: {string.Join(", ", pc.ActiveVersions)})" : "")
+                : $"pattern {pc.Pattern}: {pc.VersionNote}";
+
         foreach (var m in pc.Missing)
             yield return string.IsNullOrEmpty(m.Path)
                 ? $"pattern {pc.Pattern}: missing required control '{m.Expected}'"

@@ -136,7 +136,15 @@ public sealed partial class PingGrpcService
             Version = o["version"]?.GetValue<string>() ?? "",
             Ok = o["ok"]?.GetValue<bool>() ?? false,
             Note = o["note"]?.GetValue<string>() ?? "",
+            // The bridge emits versionActive only when the declared version is
+            // retired; absent means active (the common case).
+            VersionActive = o["versionActive"]?.GetValue<bool>() ?? true,
+            VersionNote = o["versionNote"]?.GetValue<string>() ?? "",
         };
+
+        if (o["activeVersions"] is JsonArray activeVersions)
+            foreach (var av in activeVersions)
+                if (av?.GetValue<string>() is { Length: > 0 } v) pc.ActiveVersions.Add(v);
 
         if (o["missing"] is JsonArray missing)
             foreach (var m in missing.OfType<JsonObject>())
