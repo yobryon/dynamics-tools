@@ -126,8 +126,20 @@ namespace XppMetadataBridge.Metadata.Domain
             if (json["isExtensible"] is JToken iext && iext.Type == JTokenType.Boolean) ax.IsExtensible = (bool)iext;
             else ax.IsExtensible = true; // service default
             if (json["style"] is JToken style && style.Type == JTokenType.String) AssignEnumByName(ax, "Style", (string)style!);
-            if (json["useExplicitValues"]?.Type == JTokenType.Boolean && (bool)json["useExplicitValues"]!)
-                ax.UseEnumValue = NoYes.Yes;
+            // Map BOTH branches, mirroring the patch path. Assigning only on
+            // true left UseEnumValue at the metaclass default (Yes), which the
+            // serializer then elides -- and the AOT reads an omitted
+            // UseEnumValue as Yes. For the common case (isExtensible with
+            // useExplicitValues defaulted false) that produced an enum which
+            // fails metadata validation ("UseEnumValue must be No when
+            // IsExtensible is True"), and which get_enum read back as
+            // useExplicitValues=true, since the read maps
+            // useExplicitValues = (UseEnumValue == Yes). useExplicitValues is
+            // non-nullable in the service schema, so an absent key means false,
+            // not "leave the platform default".
+            var useExplicit = json["useExplicitValues"]?.Type == JTokenType.Boolean
+                              && (bool)json["useExplicitValues"]!;
+            ax.UseEnumValue = useExplicit ? NoYes.Yes : NoYes.No;
             if (json["advanced"] is JObject adv) ApplyAdvancedScalarsToAxEnum(ax, adv);
         }
 
