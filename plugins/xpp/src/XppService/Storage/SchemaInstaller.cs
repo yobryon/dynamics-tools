@@ -22,7 +22,7 @@ namespace Xpp.Service.Storage;
 /// </summary>
 public sealed class SchemaInstaller
 {
-    public const int CurrentVersion = 6;
+    public const int CurrentVersion = 7;
 
     // Migration scripts, in order. Each must update schema_version.version
     // to its sequence number when it succeeds.
@@ -33,6 +33,7 @@ public sealed class SchemaInstaller
         (4, "004-phase2-marker.sql"),
         (5, "005-runtime-source.sql"),
         (6, "006-label-value-hash.sql"),
+        (7, "007-embeddable-count.sql"),
     };
 
     private readonly ILogger<SchemaInstaller> _logger;

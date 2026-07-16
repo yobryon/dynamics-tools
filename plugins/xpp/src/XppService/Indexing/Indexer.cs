@@ -1183,6 +1183,23 @@ public sealed class Indexer
         return Convert.ToHexString(bytes);
     }
 
+    /// <summary>
+    /// Refresh the index_state summary counts. Called at the end of Phase 1 and
+    /// Phase 2, so the ~1.4s the embeddable_count scan costs is noise against
+    /// the run — and it keeps GetStatus O(1), which it's documented to be.
+    ///
+    /// embeddable_count is the denominator the embedder can actually reach:
+    /// methods/labels with non-empty content, mirroring the drain predicates'
+    /// length(trim(...)) > 0. Reporting method_count + label_count instead left
+    /// a fully-drained index stuck at ~98% (runtime-source objects carry empty
+    /// source_code by design and can never be embedded), which reads as stalled.
+    ///
+    /// embedding_count is deliberately NOT written here: the Embedder owns it
+    /// and computes it correctly (completed rows across BOTH method and label
+    /// meta, filtered to the active model_version). This used to overwrite it
+    /// with a method-only COUNT, so after every sweep the status under-reported
+    /// embeddings until the embedder's next batch corrected it.
+    /// </summary>
     private static void UpdateIndexState(SqliteConnection conn)
     {
         using var cmd = conn.CreateCommand();
@@ -1192,7 +1209,9 @@ public sealed class Indexer
                 object_count      = (SELECT COUNT(*) FROM objects),
                 method_count      = (SELECT COUNT(*) FROM methods),
                 label_count       = (SELECT COUNT(*) FROM labels),
-                embedding_count   = (SELECT COUNT(*) FROM method_embedding_meta)
+                embeddable_count  =
+                    (SELECT COUNT(*) FROM methods WHERE length(trim(source_code)) > 0)
+                  + (SELECT COUNT(*) FROM labels  WHERE length(trim(value))       > 0)
             WHERE id = 1;
         ";
         cmd.ExecuteNonQuery();

@@ -178,6 +178,7 @@ public sealed partial class PingGrpcService : XppService.XppServiceBase
         long labelCount = 0;
         long lastFullScan = 0;
         long embeddingCount = 0;
+        long embeddableCount = 0;
         bool codeSearchReady = true;
         try
         {
@@ -195,7 +196,8 @@ public sealed partial class PingGrpcService : XppService.XppServiceBase
                     (SELECT label_count        FROM index_state WHERE id=1),
                     (SELECT last_full_scan_at  FROM index_state WHERE id=1),
                     (SELECT embedding_count    FROM index_state WHERE id=1),
-                    (SELECT EXISTS(SELECT 1 FROM methods_fts_docsize LIMIT 1))";
+                    (SELECT EXISTS(SELECT 1 FROM methods_fts_docsize LIMIT 1)),
+                    (SELECT embeddable_count   FROM index_state WHERE id=1)";
             using var reader = await cmd.ExecuteReaderAsync(context.CancellationToken).ConfigureAwait(false);
             if (await reader.ReadAsync(context.CancellationToken).ConfigureAwait(false))
             {
@@ -206,6 +208,7 @@ public sealed partial class PingGrpcService : XppService.XppServiceBase
                 lastFullScan = reader.IsDBNull(4) ? 0 : reader.GetInt64(4);
                 embeddingCount = reader.IsDBNull(5) ? 0 : reader.GetInt64(5);
                 var ftsHasDocs = !reader.IsDBNull(6) && reader.GetInt64(6) != 0;
+                embeddableCount = reader.IsDBNull(7) ? 0 : reader.GetInt64(7);
                 // Ready when the FTS is populated, or when there's nothing to
                 // index yet (no methods → an honest empty, not a broken index).
                 codeSearchReady = ftsHasDocs || methodCount == 0;
@@ -220,7 +223,14 @@ public sealed partial class PingGrpcService : XppService.XppServiceBase
         // storage-side availability of sqlite-vec. embedding_total is the
         // denominator the background embedder is working toward.
         var embeddingState = DescribeEmbeddingState();
-        long embeddingTotal = methodCount + labelCount; // upper bound; empties are skipped but the gap is tiny
+        // Only rows the embedder can actually reach: its drain predicates skip
+        // empty content (length(trim(...)) > 0), and runtime-source objects
+        // carry empty source_code by design — so method_count + label_count is a
+        // denominator it can never hit, leaving a finished index reading ~98%
+        // forever. embeddable_count is maintained by UpdateIndexState; fall back
+        // to the old upper bound until the first sweep after the v7 migration
+        // populates it (better a slightly-high denominator than a zero one).
+        long embeddingTotal = embeddableCount > 0 ? embeddableCount : methodCount + labelCount;
 
         var lastSweep = _lifecycle.LastSweepCompletedAt;
         var lastFull  = _lifecycle.LastFullScanCompletedAt;

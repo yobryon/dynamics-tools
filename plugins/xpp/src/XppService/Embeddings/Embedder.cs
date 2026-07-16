@@ -45,6 +45,11 @@ public sealed class Embedder : BackgroundService
     private readonly EmbeddingWorkSignal _signal;
     private readonly ILogger<Embedder> _logger;
 
+    // True once we've published an accurate count for the current caught-up
+    // state. Reset whenever we embed something, so the next catch-up republishes
+    // exactly once instead of re-counting on every poll cycle.
+    private bool _idleCountPublished;
+
     public Embedder(
         IndexDatabase db, IndexWriter writer, IEmbeddingProvider generator,
         EmbeddingOptions options, EmbeddingWorkSignal signal,
@@ -90,10 +95,33 @@ public sealed class Embedder : BackgroundService
                 embedded = 0;
             }
 
-            if (embedded == 0)
+            if (embedded > 0)
             {
-                // Caught up. Tidy orphaned vectors left by churned ids, then
-                // park until something changes (or the backstop fires).
+                // Work happened; the count published per-page is already fresh,
+                // but the next catch-up should publish a final one.
+                _idleCountPublished = false;
+            }
+            else
+            {
+                // Caught up. Publish the count once here: DrainKindAsync only
+                // refreshes it per embedded page, so with nothing pending it
+                // would never run — leaving whatever a sweep's UpdateIndexState
+                // last wrote (historically a method-only COUNT) standing as the
+                // published total, which reads as "embeddings incomplete"
+                // forever. Guarded so we don't re-count on every poll cycle.
+                if (!_idleCountPublished)
+                {
+                    try
+                    {
+                        await UpdateEmbeddingStateAsync(ct).ConfigureAwait(false);
+                        _idleCountPublished = true;
+                    }
+                    catch (OperationCanceledException) { break; }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Embedding count publish failed (non-fatal)"); }
+                }
+
+                // Tidy orphaned vectors left by churned ids, then park until
+                // something changes (or the backstop fires).
                 try { await GcOrphansAsync(ct).ConfigureAwait(false); }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex) { _logger.LogWarning(ex, "Embedding vector GC failed (non-fatal)"); }
