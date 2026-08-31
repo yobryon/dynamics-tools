@@ -58,7 +58,17 @@ namespace XppMetadataBridge.Metadata.Domain
                 var ep = MetaclassMap.Instantiate("AxSecurityEntryPointReference");
                 MetaclassMap.SetName(ep, (string?)ej["name"] ?? string.Empty);
                 MetaclassJson.Assign(ep, "ObjectName", ej["objectName"]);
-                MetaclassJson.Assign(ep, "ObjectType", ej["objectType"]);
+                // ObjectType is the EntryPointType enum. When the caller uses the
+                // 'Other' + rawObjectType escape hatch, rawObjectType is the
+                // verbatim on-disk value — assign IT directly so an invalid value
+                // (e.g. 'Service') is rejected by MS's own "Invalid enum value"
+                // rather than silently dropped to None, and a valid one round-
+                // trips. (ServiceOperation is now a first-class objectType, so
+                // most callers won't need this path.)
+                if (ej["rawObjectType"] is JToken rawObjType && rawObjType.Type == JTokenType.String)
+                    MetaclassJson.Assign(ep, "ObjectType", rawObjType);
+                else
+                    MetaclassJson.Assign(ep, "ObjectType", ej["objectType"]);
                 MetaclassJson.Assign(ep, "ObjectChildName", ej["objectChildName"]);
                 if (ej["grant"] is JObject g) MetaclassMap.ApplyAccessGrant(ep, "Grant", g);
                 if (ej["forms"] is JArray forms)

@@ -43,6 +43,8 @@ public enum SecurityEntryPointObjectType
     MenuItemOutput,
     Form,
     Tile,
+    [Description("A single operation (method) on a custom service. Set ObjectName to the service, ObjectChildName to the operation — one entry point PER operation. (The on-disk EntryPointType value is 'ServiceOperation', NOT 'Service'.)")]
+    ServiceOperation,
     [Description("Other / future entry-point kinds. The on-disk value is preserved via RawObjectType.")]
     Other,
 }
@@ -55,13 +57,16 @@ public sealed record SecurityEntryPoint
     [Description("Grant block — per-CRUD access levels applied when this entry point is invoked under the host privilege/role.")]
     public SecurityGrant? Grant { get; init; }
 
-    [Description("Target object's AOT name (the AxMenuItemDisplay / AxMenuItemAction / AxForm / etc.).")]
+    [Description("Target object's AOT name (the AxMenuItemDisplay / AxMenuItemAction / AxForm / Service / etc.). For ObjectType=ServiceOperation this is the SERVICE name; the operation goes in ObjectChildName.")]
     public string ObjectName { get; init; } = string.Empty;
 
-    [Description("Target object's type discriminator. Use 'Other' + RawObjectType for kinds not modeled by the enum.")]
+    [Description("For ObjectType=ServiceOperation: the operation (method) name on the service. A privilege targets one entry point PER operation, so create one SecurityEntryPoint per method. Ignored for other object types.")]
+    public string? ObjectChildName { get; init; }
+
+    [Description("Target object's type discriminator. For a custom service operation use ServiceOperation (with ObjectChildName). 'Other' + RawObjectType is a last resort for kinds not modeled by the enum — but RawObjectType must be a value the platform's EntryPointType actually accepts, or the write is rejected.")]
     public SecurityEntryPointObjectType ObjectType { get; init; }
 
-    [Description("When ObjectType=Other: the on-disk value verbatim.")]
+    [Description("When ObjectType=Other: the on-disk value verbatim. Must be a valid EntryPointType member; an unknown value is rejected at the boundary (it used to be silently dropped).")]
     public string? RawObjectType { get; init; }
 
     [Description("Form names this entry point applies to (rarely populated; usually emitted as <Forms />).")]

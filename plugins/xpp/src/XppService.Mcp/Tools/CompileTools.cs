@@ -41,7 +41,12 @@ public sealed class CompileTools
         "verbosity=\"default\" groups errors AND warnings by moniker (count " +
         "+ a few concrete samples each) — a failing build can carry hundreds " +
         "of errors; verbosity=\"full\" returns every diagnostic with full " +
-        "location detail. errorCount is always the true total. " +
+        "location detail. errorCount is the raw total of Error-severity " +
+        "diagnostics; it is split into buildErrors (fatal — these failed the " +
+        "build) and validationDiagnostics (non-fatal metadata-validation " +
+        "diagnostics that do NOT fail the build). When success=true these are " +
+        "all validationDiagnostics — success:true with errorCount>0 is not a " +
+        "contradiction. errorsFailedBuild mirrors !success. " +
         "Honors the project's bestPractices.suppress list (BP diagnostics " +
         "matching it land in the suppressed bucket). " +
         "upToDate=true means devenv reported 'succeeded or up-to-date' — " +
@@ -202,6 +207,17 @@ public sealed class CompileTools
             // the response past the MCP token limit. verbosity="full" returns
             // every error with full location detail.
             errorCount = errorDiags.Count,
+            // success=true alongside errorCount>0 is NOT a contradiction: the
+            // build passed, so those Error-severity entries did not fail it —
+            // they're non-fatal metadata-validation diagnostics (e.g.
+            // DataMethodNotFoundOnDataSource on a custom control, which the
+            // control resolves itself at runtime). Split the count by build
+            // outcome so the two numbers can't be misread as one. buildErrors is
+            // the actionable "your build failed" bucket; validationDiagnostics is
+            // advisory. errorCount stays as the raw total for back-compat.
+            buildErrors = rsp.Success ? 0 : errorDiags.Count,
+            validationDiagnostics = rsp.Success ? errorDiags.Count : 0,
+            errorsFailedBuild = !rsp.Success,
             errors = fullDetail
                 ? (object)new { total = errorDiags.Count, diagnostics = errorDiags.Select(ProjectDiag).ToArray() }
                 : GroupErrors(errorDiags),
