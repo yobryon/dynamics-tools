@@ -28,11 +28,13 @@ namespace Xpp.Service.Mcp.Grpc;
 internal sealed class EagerConnectionPrimer : IHostedService
 {
     private readonly XppServiceConnection _conn;
+    private readonly McpOptions _options;
     private readonly ILogger<EagerConnectionPrimer> _logger;
 
-    public EagerConnectionPrimer(XppServiceConnection conn, ILogger<EagerConnectionPrimer> logger)
+    public EagerConnectionPrimer(XppServiceConnection conn, McpOptions options, ILogger<EagerConnectionPrimer> logger)
     {
         _conn = conn;
+        _options = options;
         _logger = logger;
     }
 
@@ -54,22 +56,30 @@ internal sealed class EagerConnectionPrimer : IHostedService
                     deadline: DateTime.UtcNow.AddSeconds(30),
                     cancellationToken: cancellationToken);
 
-                // Version negotiation (observe-only for now; newest-wins takeover
-                // hangs off this comparison in a later increment). The service's
-                // plugin_version and our own are both stamped from plugin.json,
-                // so a mismatch means a version-skewed service is running (e.g. an
-                // older session's service that a newer session connected to).
+                // Newest-wins negotiation. The service's plugin_version and our
+                // own are both stamped from plugin.json, so a mismatch means a
+                // version-skewed service is running — typically a service left
+                // behind by a session that started before the user updated the
+                // plugin. An OLDER service gets asked to stand down so ours can
+                // own the box; a NEWER one we simply use (the contract is
+                // additive, so an older client is a valid client of it).
                 var mine = ServiceVersionInfo.PluginVersion;
                 var running = rsp.PluginVersion;
                 var cmp = ServiceVersionInfo.Compare(running, mine);
-                if (string.IsNullOrEmpty(running))
-                    _logger.LogInformation("XppService primed: {Composite} (pre-versioning service; mine={Mine})", rsp.ServiceVersion, mine);
-                else if (cmp == 0)
-                    _logger.LogInformation("XppService primed: {Composite} (version in sync: {Ver})", rsp.ServiceVersion, running);
-                else if (cmp < 0)
-                    _logger.LogWarning("XppService is OLDER than this MCP (service={Running}, mcp={Mine}). Newest-wins takeover not yet enabled — connected anyway.", running, mine);
-                else
+                if (cmp == 0)
+                {
+                    _logger.LogInformation("XppService primed: {Composite} (version in sync: {Ver})", rsp.ServiceVersion, mine);
+                }
+                else if (cmp > 0)
+                {
                     _logger.LogInformation("XppService is newer than this MCP (service={Running}, mcp={Mine}); connected as a compatible client.", running, mine);
+                }
+                else
+                {
+                    _logger.LogWarning("XppService is older than this MCP (service={Running}, mcp={Mine}); taking over.",
+                        string.IsNullOrEmpty(running) ? "pre-versioning" : running, mine);
+                    await TakeOverAsync(running, mine, cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -89,6 +99,52 @@ internal sealed class EagerConnectionPrimer : IHostedService
         }, cancellationToken);
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Stand the old service down, then re-Ping. The re-Ping is what actually
+    /// brings our build up: the pipe is gone, so the connection factory takes
+    /// its auto-spawn path and starts the service that sits next to THIS MCP
+    /// build. We then confirm the version we ended up with rather than assuming
+    /// the spawn produced what we expected.
+    /// </summary>
+    private async Task TakeOverAsync(string running, string mine, CancellationToken ct)
+    {
+        var clear = await ServiceTakeover.SupersedeAsync(
+            _conn.Client, _options.PipeName, running, mine, _logger, ct).ConfigureAwait(false);
+
+        if (!clear)
+        {
+            _logger.LogWarning(
+                "Takeover did not complete; continuing against the running service. Tool calls will work, " +
+                "but they run plugin {Running}, not {Mine}.",
+                string.IsNullOrEmpty(running) ? "pre-versioning" : running, mine);
+            return;
+        }
+
+        try
+        {
+            var rsp = await _conn.Client.PingAsync(
+                new PingRequest { Echo = "mcp-takeover" },
+                deadline: DateTime.UtcNow.AddSeconds(45),
+                cancellationToken: ct);
+
+            if (ServiceVersionInfo.Compare(rsp.PluginVersion, mine) == 0)
+                _logger.LogInformation("Takeover complete: XppService now running plugin {Mine} (pid {Pid}).", mine, rsp.ProcessId);
+            else
+                _logger.LogWarning(
+                    "Takeover restarted the service but it reports plugin {Running}, not {Mine}. " +
+                    "Something else on this box is spawning a different build.",
+                    string.IsNullOrEmpty(rsp.PluginVersion) ? "pre-versioning" : rsp.PluginVersion, mine);
+        }
+        catch (Exception ex)
+        {
+            // We stopped the old service and couldn't start ours. Say so
+            // plainly — the next tool call retries the same spawn path, so
+            // this is recoverable, but the user should see it.
+            _logger.LogError(ex,
+                "Stopped the older XppService but could not start plugin {Mine}. The next tool call will retry.", mine);
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

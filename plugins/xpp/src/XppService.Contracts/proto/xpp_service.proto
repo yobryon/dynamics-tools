@@ -28,6 +28,14 @@ service XppService {
   rpc Ping(PingRequest) returns (PingResponse);
   rpc GetStatus(StatusRequest) returns (StatusResponse);
 
+  // Ask this service to shut down gracefully so a newer build can take over
+  // the box (see docs/versioning-and-servicing-design.md). The service
+  // answers FIRST, then stops: in-flight calls drain, the index DB is
+  // checkpointed, the bridge children are disposed, and the pipe + global
+  // mutex are released. Idempotent — a second call during an in-progress
+  // stop is accepted and ignored.
+  rpc RequestShutdown(ShutdownRequest) returns (ShutdownResponse);
+
   // Enumerate every model the bridge can see, with metadata + the
   // is_binary flag set on modules visible only through the runtime
   // (compiled-DLL) provider. Cache-first: served from the indexed
@@ -660,6 +668,31 @@ message PingResponse {
   // build version and takes over an older service. Empty from a pre-versioning
   // service; treat empty as "older than any real version".
   string plugin_version = 4;
+
+  // OS process id of the running service. Used only as the escalation path
+  // for the newest-wins takeover: if a superseded service doesn't honor
+  // RequestShutdown within the grace period, the incoming MCP kills this pid.
+  int32 process_id = 5;
+}
+
+message ShutdownRequest {
+  // Free-text reason recorded in the service log, so an operator reading the
+  // log of a service that vanished can see who asked and why
+  // (e.g. "superseded by plugin 0.2.0").
+  string reason = 1;
+}
+
+message ShutdownResponse {
+  // True when the service accepted the request and has scheduled its
+  // graceful stop. False means it declined (and kept running).
+  bool accepted = 1;
+
+  // The stopping service's pid, so the caller can watch for the process to
+  // actually exit and escalate to a kill if it hangs.
+  int32 process_id = 2;
+
+  // The stopping service's plugin version, echoed for the caller's log.
+  string plugin_version = 3;
 }
 
 message RebuildRequest {

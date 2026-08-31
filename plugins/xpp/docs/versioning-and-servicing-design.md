@@ -52,17 +52,31 @@ reconnect to the newer (compatible) service and keep working.
 
 ## Increments
 
-1. **Version handshake foundation** *(this commit)*. Single source of truth =
+1. **Version handshake foundation** *(done)*. Single source of truth =
    `plugin.json` version, stamped into every assembly via a root
    `Directory.Build.props` (regex-read of plugin.json). `PingResponse` gains a
    clean, comparable `plugin_version` field (bare semver). Service reports it;
    the MCP's `EagerConnectionPrimer` reads its own version + the service's and
    logs whether they're in sync. **Observe-only — no behavior change yet.**
-2. **Newest-wins takeover.** New `RequestShutdown` RPC (drain in-flight,
-   checkpoint the DB, release mutex + pipe, exit). `EagerConnectionPrimer`: if
-   running `plugin_version` < mine → `RequestShutdown` the old, wait for pipe
-   release, let the connection factory spawn mine. Cooperative, escalating to a
-   PID kill (from the handshake) if unresponsive. Mutex gates the DB handoff.
+2. **Newest-wins takeover** *(done)*. New `RequestShutdown` RPC: the service
+   answers FIRST, then stops, so the caller can tell "accepted" from "crashed";
+   the host's normal graceful stop then drains in-flight calls, disposes the
+   bridge pool, checkpoints the DB, and releases the pipe + global mutex.
+   `EagerConnectionPrimer`: if running `plugin_version` < mine →
+   `ServiceTakeover.SupersedeAsync` (request shutdown → wait for the pid to
+   exit, escalating to a kill after a 20s grace, guarded by a process-name
+   check against recycled pids → wait for the pipe to disappear) → re-Ping,
+   which takes the connection factory's auto-spawn path and brings up our
+   build. The re-Ping *confirms* the resulting version rather than assuming it.
+   A newer service is left alone and used as-is (additive contract), so two
+   sessions can't ping-pong. Every failure path is non-fatal: we log loudly and
+   keep using the incumbent.
+
+   Verified end-to-end against a purpose-built 0.0.9 service
+   (`dotnet build -p:Version=0.0.9 -o misc/oldsvc`): 0.1.0 MCP superseded it,
+   the old exited cleanly without needing the kill, the new one spawned from
+   the expected path, and exactly one service remained. The reverse (0.0.8 MCP
+   vs 0.1.0 service) correctly connected as a client and left it running.
 3. **Loud downgrade refusal.** Service startup: if stored DB `schema_version` >
    `SchemaInstaller.CurrentVersion`, refuse to launch (clean exit + message →
    `dt cache clear`), rather than the current bridge-the-gap throw.
