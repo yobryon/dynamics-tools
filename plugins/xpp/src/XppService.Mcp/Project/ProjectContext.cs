@@ -448,6 +448,35 @@ public sealed class ProjectContext
 
             InsertPreservingIndent(targetGroup, entry, ns);
 
+            // AxLabelFile needs a SECOND <Content> entry — the label-text file,
+            // marked DependentUpon the descriptor. Without it VS shows the label
+            // file half-declared (the .label.txt doesn't nest under the object),
+            // which forces the exclude-from-project + re-add-from-AOT dance to
+            // make it show correctly. The object name is "<id>_<lang>" (e.g.
+            // "ConL_en-US"); the text file is "<id>.<lang>.label.txt" — split on
+            // the LAST underscore (language codes use hyphens, not underscores,
+            // so the id is everything before it).
+            if (string.Equals(axType, "AxLabelFile", StringComparison.OrdinalIgnoreCase))
+            {
+                var us = name.LastIndexOf('_');
+                if (us > 0 && us < name.Length - 1)
+                {
+                    var txtInclude = $"{name.Substring(0, us)}.{name.Substring(us + 1)}.label.txt";
+                    var alreadyTxt = doc.Root!.Elements(ns + "ItemGroup")
+                        .SelectMany(g => g.Elements(ns + "Content"))
+                        .Any(c => string.Equals((string?)c.Attribute("Include"), txtInclude, StringComparison.OrdinalIgnoreCase));
+                    if (!alreadyTxt)
+                    {
+                        var txtEntry = new XElement(ns + "Content",
+                            new XAttribute("Include", txtInclude),
+                            new XElement(ns + "SubType", "Content"),
+                            new XElement(ns + "Name", txtInclude),
+                            new XElement(ns + "DependentUpon", include));
+                        InsertPreservingIndent(targetGroup, txtEntry, ns);
+                    }
+                }
+            }
+
             // Ensure the VS-project DISPLAY folder this object links into is
             // DECLARED. A <Content> whose <Link> points at an undeclared folder
             // breaks the project: on a brand-new (empty) project with no folder
@@ -480,16 +509,33 @@ public sealed class ProjectContext
             var ns = (XNamespace)MsbuildNs;
             var include = $"{axType}\\{name}";
 
-            var match = doc.Root!.Elements(ns + "ItemGroup")
-                .SelectMany(g => g.Elements(ns + "Content"))
-                .FirstOrDefault(c => string.Equals(
-                    (string?)c.Attribute("Include"), include,
-                    StringComparison.OrdinalIgnoreCase));
-            if (match == null) return false;
+            // Includes to strip: the object descriptor, plus (for a label file)
+            // its paired ".label.txt" DependentUpon entry that AddToRnprojAsync
+            // wrote alongside it.
+            var includes = new List<string> { include };
+            if (string.Equals(axType, "AxLabelFile", StringComparison.OrdinalIgnoreCase))
+            {
+                var us = name.LastIndexOf('_');
+                if (us > 0 && us < name.Length - 1)
+                    includes.Add($"{name.Substring(0, us)}.{name.Substring(us + 1)}.label.txt");
+            }
 
-            if (match.PreviousNode is XText prev && string.IsNullOrWhiteSpace(prev.Value))
-                prev.Remove();
-            match.Remove();
+            var removedAny = false;
+            foreach (var inc in includes)
+            {
+                var match = doc.Root!.Elements(ns + "ItemGroup")
+                    .SelectMany(g => g.Elements(ns + "Content"))
+                    .FirstOrDefault(c => string.Equals(
+                        (string?)c.Attribute("Include"), inc,
+                        StringComparison.OrdinalIgnoreCase));
+                if (match == null) continue;
+
+                if (match.PreviousNode is XText prev && string.IsNullOrWhiteSpace(prev.Value))
+                    prev.Remove();
+                match.Remove();
+                removedAny = true;
+            }
+            if (!removedAny) return false;
 
             await SaveDocPreservingEncodingAsync(doc, resolved.RnprojPath, ct).ConfigureAwait(false);
             return true;

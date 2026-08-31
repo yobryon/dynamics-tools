@@ -257,11 +257,53 @@ public sealed class ProjectTools
                 catch (Exception ex) { warnings.Add($"{label} metadata delete failed ({path}): {ex.Message}"); }
             }
         }
-        // fileRemoved = the canonical source copy is gone; flag a lingering
-        // runtime copy loudly rather than silently reporting success.
-        var fileRemoved = sourcePath == null || !File.Exists(sourcePath);
+        // fileRemoved reports the POST-CONDITION, never the intent. Two ways it
+        // is false: we couldn't resolve the on-disk path at all (no scm block,
+        // so we don't know the metadata root), or the file survived the delete.
+        // Reporting either as "removed" let a delete silently no-op while
+        // claiming success — the object stays live in the model and would still
+        // deploy.
+        bool fileRemoved;
+        if (sourcePath == null)
+        {
+            fileRemoved = false;
+            warnings.Add(
+                "could not resolve the on-disk metadata path (no scm.metadataPath in " +
+                ".dynamics-xpp/config.json), so the source file was NOT located or removed — " +
+                "the object likely still exists on disk and would deploy. Add scm.metadataPath " +
+                "to the project config (or remove the file manually) and retry.");
+        }
+        else if (File.Exists(sourcePath))
+        {
+            fileRemoved = false;
+            warnings.Add($"source metadata file still present after delete: {sourcePath}");
+        }
+        else
+        {
+            fileRemoved = true;
+        }
         if (runtimePath != null && File.Exists(runtimePath))
             warnings.Add($"runtime metadata copy still present: {runtimePath}");
+
+        // If the file is still on disk, do NOT proceed to strip the object from
+        // the project / changeset / index. Doing so produces the worst state:
+        // invisible to the project view but live in the model. Fail honestly and
+        // leave everything else intact so the object is still findable.
+        if (!fileRemoved)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                deleted = false,
+                axType,
+                name,
+                fileRemoved = false,
+                projectRemoved = false,
+                changesetRemoved = false,
+                indexEvicted = false,
+                forced = force,
+                sideEffectWarnings = warnings.ToArray(),
+            });
+        }
 
         // .rnrproj removal.
         bool projectRemoved;

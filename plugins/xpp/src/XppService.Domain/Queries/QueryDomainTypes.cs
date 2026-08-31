@@ -292,13 +292,13 @@ public sealed record QueryRelation
     [Description("Relation name. Often a description of what's joined (e.g. 'CustomerToOrder') OR — when UseRelations=true and pointing at a table-level relation — the relation name on the related table.")]
     public string Name { get; init; } = string.Empty;
 
-    [Description("Field on THIS data source's table. Required when UseRelations=false.")]
+    [Description("Field on the JOINED data source's table — the one named in JoinDataSource (typically the FK column on the parent). Required when UseRelations=false. NOTE: this is the join partner's field, NOT this data source's; the compiler resolves Field against JoinDataSource. (See a shipped example, e.g. SystemSecurityRoleDutyEntity.)")]
     public string? Field { get; init; }
 
-    [Description("Field on the JOINED data source's table. Required when UseRelations=false.")]
+    [Description("Field on THIS data source's table — the data source this relation is declared under (often RecId). Required when UseRelations=false. The compiler resolves RelatedField against the embedded data source itself, not the join partner.")]
     public string? RelatedField { get; init; }
 
-    [Description("Name of the data source to join AGAINST. References a sibling or parent data source by Name.")]
+    [Description("Name of the data source to join AGAINST. References a sibling or parent data source by Name. Field (above) is resolved against THIS data source.")]
     public string? JoinDataSource { get; init; }
 
     [Description("When UseRelations=true, names the relation on the JOINED data source's table to consume.")]

@@ -132,7 +132,7 @@ public sealed class NavigationTools
         "Ops:\n" +
         "  set    — replace the node at atPath with value (e.g. swap a control's full definition)\n" +
         "  merge  — overlay value's top-level properties onto the object at atPath (tweak a few props, keep children); to change something nested, target that deeper path\n" +
-        "  append — add value (a new member object) to the COLLECTION at atPath (e.g. atPath='/design/controls/Grid/controls', value=a new control)\n" +
+        "  append — add value to the COLLECTION at atPath (e.g. atPath='/design/controls/Grid/controls'). value is a new member object, OR an ARRAY of member objects to add several in one call (build a class's methods or a control tree in a single round trip, not one per member)\n" +
         "  remove — delete the node at atPath (value omitted)\n\n" +
         "value is the JSON for the node/member, in the same domain shape the get " +
         "tools return (e.g. a control object with name/kind/dataField). The edit " +

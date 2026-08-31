@@ -285,10 +285,29 @@ internal static class DomainSkeleton
             }
             if (target is not JsonArray arr)
                 throw new SpliceException($"append requires at_path to be a collection; '{atPath}' is a {Kind(target)}.");
-            if (value is not JsonObject)
-                throw new SpliceException("append requires value to be a JSON object (a new collection member).");
-            arr.Add(value.DeepClone());
-            return new SpliceResult(segs[0], arr, Array.Empty<string>());  // preview the collection incl. the new member
+            // Accept a single member object OR an array of them, so building out a
+            // wide collection (a class's methods, a form's control tree) is one
+            // call instead of one round trip per member. Validate the whole batch
+            // before mutating so a bad member doesn't leave a partial append.
+            if (value is JsonArray items)
+            {
+                if (items.Count == 0)
+                    throw new SpliceException("append value array is empty — nothing to add.");
+                foreach (var item in items)
+                    if (item is not JsonObject)
+                        throw new SpliceException("append array members must each be a JSON object (a new collection member).");
+                foreach (var item in items)
+                    arr.Add(item!.DeepClone());
+            }
+            else if (value is JsonObject)
+            {
+                arr.Add(value.DeepClone());
+            }
+            else
+            {
+                throw new SpliceException("append requires value to be a JSON object (a new collection member) or an array of them.");
+            }
+            return new SpliceResult(segs[0], arr, Array.Empty<string>());  // preview the collection incl. the new member(s)
         }
 
         // set / merge / remove operate on the node via its parent + last segment.
