@@ -1,0 +1,19 @@
+<Project>
+  <!--
+    Single source of truth for the assembly version: the plugin marketplace
+    version in .claude-plugin/plugin.json. Read here (regex over the file) and
+    stamped into every project below, so the running service reports a version
+    that matches the installed plugin — the basis for the newest-wins service
+    negotiation. See docs/versioning-and-servicing-design.md.
+
+    Defensive: if the file or the version can't be read, projects fall back to
+    their own default version rather than failing the build.
+  -->
+  <PropertyGroup>
+    <_XppPluginJson>$(MSBuildThisFileDirectory).claude-plugin\plugin.json</_XppPluginJson>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(_XppPluginJson)')">
+    <_XppPluginVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(_XppPluginJson)')), '"version"\s*:\s*"([0-9]+\.[0-9]+\.[0-9]+)"').Groups[1].Value)</_XppPluginVersion>
+    <Version Condition="'$(_XppPluginVersion)' != ''">$(_XppPluginVersion)</Version>
+  </PropertyGroup>
+</Project>

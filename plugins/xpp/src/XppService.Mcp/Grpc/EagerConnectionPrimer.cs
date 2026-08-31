@@ -53,7 +53,23 @@ internal sealed class EagerConnectionPrimer : IHostedService
                     new PingRequest { Echo = "mcp-primer" },
                     deadline: DateTime.UtcNow.AddSeconds(30),
                     cancellationToken: cancellationToken);
-                _logger.LogInformation("XppService primed: {Version}", rsp.ServiceVersion);
+
+                // Version negotiation (observe-only for now; newest-wins takeover
+                // hangs off this comparison in a later increment). The service's
+                // plugin_version and our own are both stamped from plugin.json,
+                // so a mismatch means a version-skewed service is running (e.g. an
+                // older session's service that a newer session connected to).
+                var mine = ServiceVersionInfo.PluginVersion;
+                var running = rsp.PluginVersion;
+                var cmp = ServiceVersionInfo.Compare(running, mine);
+                if (string.IsNullOrEmpty(running))
+                    _logger.LogInformation("XppService primed: {Composite} (pre-versioning service; mine={Mine})", rsp.ServiceVersion, mine);
+                else if (cmp == 0)
+                    _logger.LogInformation("XppService primed: {Composite} (version in sync: {Ver})", rsp.ServiceVersion, running);
+                else if (cmp < 0)
+                    _logger.LogWarning("XppService is OLDER than this MCP (service={Running}, mcp={Mine}). Newest-wins takeover not yet enabled — connected anyway.", running, mine);
+                else
+                    _logger.LogInformation("XppService is newer than this MCP (service={Running}, mcp={Mine}); connected as a compatible client.", running, mine);
             }
             catch (OperationCanceledException)
             {

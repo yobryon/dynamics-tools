@@ -84,15 +84,19 @@ public sealed partial class PingGrpcService : XppService.XppServiceBase
 
         var bridgeEcho = bridgeResult?["echo"]?.GetValue<string>() ?? string.Empty;
         var bridgeVersion = bridgeResult?["bridgeVersion"]?.GetValue<string>() ?? "unknown";
-        var serviceVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
+        // AssemblyVersion is stamped from plugin.json via Directory.Build.props,
+        // so ToString(3) is the plugin semver ("0.1.0") — the comparable value
+        // the newest-wins negotiation keys on.
+        var pluginVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
 
         return new PingResponse
         {
             Echo = bridgeEcho,
             ServerTime = DateTime.UtcNow.ToString("O"),
-            // We surface BOTH versions so probes can tell which layer answered.
-            // Format: "service=<v>; bridge=<v>".
-            ServiceVersion = $"service={serviceVersion}; bridge={bridgeVersion}"
+            // Composite, human-readable, for diagnostics only — don't parse it.
+            ServiceVersion = $"service={pluginVersion}; bridge={bridgeVersion}",
+            // Bare, comparable semver — the version-negotiation field.
+            PluginVersion = pluginVersion,
         };
     }
 

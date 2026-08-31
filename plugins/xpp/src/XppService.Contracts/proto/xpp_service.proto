@@ -649,9 +649,17 @@ message PingResponse {
   // clients to detect clock skew and confirm the response is fresh.
   string server_time = 2;
 
-  // Service version string. Format is loosely "v2.<minor>.<patch>"; the
-  // service treats this as opaque from the client's perspective.
+  // Service version string. Format is loosely "service=<v>; bridge=<v>"; a
+  // human-readable composite kept for diagnostics. Do NOT parse for version
+  // comparison — use plugin_version.
   string service_version = 3;
+
+  // The plugin (marketplace) version this service was built from, as a bare
+  // semver ("0.1.0"). Monotonic and directly comparable (System.Version) — the
+  // basis for the newest-wins negotiation: an MCP compares this to its own
+  // build version and takes over an older service. Empty from a pre-versioning
+  // service; treat empty as "older than any real version".
+  string plugin_version = 4;
 }
 
 message RebuildRequest {
