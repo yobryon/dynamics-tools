@@ -543,6 +543,12 @@ have several constraint subtypes:
   table's side.
 - `UseDefaultRoleNames` — `Yes` (typical). Set `No` and use
   `RoleName` / `RelatedTableRole` to override.
+- `OnDelete` — **the delete behaviour for this relation** (`None` / `Cascade` /
+  `Restricted` / `CascadeRestricted`). This is not a minor knob — it is the
+  *modern* way to declare cascades, and the directionality is easy to get
+  backwards. See **Delete behaviour** below before setting it, and never leave a
+  new FK relation on `None` by default "to be explicit" — `None` means dangling
+  children.
 
 ### Common multi-relation table
 
@@ -582,13 +588,61 @@ can disambiguate. Otherwise the auto-lookups will fight each other.
 
 ---
 
-## Delete actions
+## Delete behaviour — declare it on the relation, via `OnDelete`
 
-`DeleteActions` define cascades to related tables when a row of this
-table is deleted:
+**In modern F&O, delete behaviour is a property on the *relation*, not a separate
+`DeleteActions` block.** `OnDelete` goes on the relation of the table that holds
+the foreign key, and says what happens to **this** table's rows when the
+**related** record is deleted:
+
+```jsonc
+{
+  "name": "CustOrder",
+  "relatedTable": "CustOrder",
+  "isForeignKey": true,
+  "onDelete": "Cascade",          // <-- delete behaviour lives HERE, on the relation
+  "constraints": [{"type": "Field", "name": "OrderId", "field": "OrderId", "relatedField": "OrderId"}]
+}
+```
+
+### `OnDelete` values (directionality is the thing to get right)
+
+The relation is declared on the child (FK-holding) table and points at the
+related (parent) table. `OnDelete` governs what happens to **the child's** rows
+when a **parent** record is deleted:
+
+- `None` — nothing; the parent delete proceeds and my rows are left dangling.
+- `Cascade` — **delete my rows when the related record goes.**
+- `Restricted` — **block deletion of the related record while my rows exist.**
+- `CascadeRestricted` — cascade one level, but block if anything deeper is `Restricted`.
+
+> **The cascade lives on YOUR table, so a cascade from a Microsoft-shipped parent
+> needs NO extension of that parent.** If you want your rows removed when a
+> `DirPartyTable` / `CustTable` / etc. record is deleted, put `onDelete: "Cascade"`
+> on **your own** table's relation to it. Do **not** reach for an
+> `AxTableExtension` or a `[ExtensionOf]` CoC `delete()` wrapper on the shipped
+> table — that inversion is a classic and expensive wrong turn.
+
+### The BP-warning trap
+
+`BPCheckMissingDeleteActions` fires on **a relation with no `OnDelete`**, not on
+a missing legacy `<DeleteActions>` entry — despite being named after the legacy
+concept. If you have just read the legacy note below, that name will steer you
+wrong: the fix is to set `OnDelete` on the flagged relation, never to add a
+`DeleteActions` block or to delete the relation to silence the check.
+
+**Cascades can melt performance** on heavily-related tables. Before setting
+`Cascade`, check the related table's cardinality — if "potentially many," the
+cascade can take down the AOS during peak operations. `Restricted` is often the
+safer default for a hot parent.
+
+### Legacy: the `<DeleteActions>` block
+
+Older tables carry a separate `<DeleteActions>` block on the **parent**, listing
+cascades outward to child tables:
 
 ```xml
-<DeleteActions>
+<DeleteActions>       <!-- LEGACY — don't author new ones -->
   <AxTableDeleteAction>
     <Name>CustOrders</Name>
     <DeleteAction>Cascade</DeleteAction>
@@ -597,17 +651,10 @@ table is deleted:
 </DeleteActions>
 ```
 
-### Delete action values
-
-- `None` — no action, deletion proceeds.
-- `Cascade` — also delete the matching rows in `RelatedTable`.
-- `Restricted` — fail the delete if matching rows exist.
-- `CascadeRestricted` — cascade unless there are deeper restricts.
-
-**Cascades can melt performance** on heavily-related tables. Read the
-related table's existing `Relations` before adding a `Cascade` — if
-the cardinality is "potentially many," the cascade can take down the
-AOS during peak operations.
+It still exists and still works, and `deleteActions` is still on the typed
+surface for reading/patching such tables — but **author new delete behaviour as
+relation `OnDelete`**, not here. The two mechanisms coexist on old objects;
+don't add a `DeleteActions` entry to a relation that just needs `OnDelete`.
 
 ---
 

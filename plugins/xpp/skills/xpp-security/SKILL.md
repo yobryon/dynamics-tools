@@ -264,9 +264,18 @@ Different shape entirely — see the XDS section below.
 |---|---|
 | `Name` | Local name within this privilege. Can match `ObjectName` for simplicity. |
 | `Grant` | The five-value matrix above. |
-| `ObjectName` | The AOT name of the menu item / form / service this entry point references. |
-| `ObjectType` | `MenuItemDisplay`, `MenuItemAction`, `MenuItemOutput`, `Form`, `Service`, `Table`, `DataEntity`. |
+| `ObjectName` | The AOT name of the menu item / form / service / table / data entity this entry point references. For a service operation, this is the **service** name. |
+| `ObjectChildName` | Required for `ServiceOperation`: the **operation (method) name** on the service. There is one entry point **per operation**, not one per service. |
+| `ObjectType` | The metadata enum is `MenuItemDisplay`, `MenuItemAction`, `MenuItemOutput`, `Form`, `Table`, `DataEntity`, and **`ServiceOperation`** (NOT `Service` — the bridge rejects `Service` outright). |
 | `Forms` | When `ObjectType=Form`, optional drilldown to specific controls; usually empty. |
+
+> **Granting Invoke on a custom service** (the last step of the service wire-up in
+> `dynamics-xpp:xpp-service`): create one entry point **per operation**, with
+> `objectType: "ServiceOperation"`, `objectName` = the service, and
+> `objectChildName` = the operation. Do **not** use `objectType: "Other"` +
+> `rawObjectType: "Service"` — `Service` is not a valid `EntryPointType`. Copy a
+> shipped example: `AxManageabilityAdmin` grants on `AxManagementPackService`'s
+> operations in exactly this shape.
 
 ### `AxSecurityDuty`
 

@@ -540,6 +540,17 @@ own:
   So when the root table is MS-sealed you do NOT have to re-home onto a table
   you own — a form-datasource display method (form #2, with the record
   parameter) or an `[ExtensionOf]` method (form #3, qualified) both work.
+
+  > **This three-homes rule does NOT extend to a custom control's
+  > `FormDesignPropertyDataMethod`.** That attribute (on a custom control's
+  > *build* class — see `dynamics-xpp:xpp-custom-control`) makes metadata
+  > validation resolve the named method against the **backing table only** — a
+  > form-datasource display method does *not* satisfy it, and each configured
+  > property then emits `DataMethodNotFoundOnDataSource` on every build (the
+  > diagnostics are non-fatal, and the control resolves its own method names at
+  > runtime, but they never clear). The two surfaces look identical and behave
+  > differently; on a custom control, plain `[FormDesignProperty]` is usually the
+  > better trade.
 - **Don't redeclare controls or data sources in the X++ class.** The
   form runtime adds them to the class scope automatically. See
   `dynamics-xpp:xpp-class`.

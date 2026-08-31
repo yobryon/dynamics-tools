@@ -179,6 +179,16 @@ shipped (or any) table without modifying the base.
 - Remove relations.
 - Remove field groups.
 
+> **Delete behaviour toward a shipped table needs no extension of that table.**
+> `AxTableExtension` has no `DeleteActions` element, and that absence is not a
+> limitation: in modern F&O delete behaviour is a relation `OnDelete` property,
+> and it lives on the FK-holding (child) table. To have *your* rows deleted when
+> a Microsoft-shipped parent record is deleted, add a relation to that table on
+> **your own** table (or your own extension of a table you own) with
+> `onDelete: "Cascade"` — do not extend the shipped parent, and never write a
+> `[ExtensionOf]` CoC `delete()` wrapper for this. See `dynamics-xpp:xpp-table`
+> → Delete behaviour.
+
 ### Structure
 
 ```xml

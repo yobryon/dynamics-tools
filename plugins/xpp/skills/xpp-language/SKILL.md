@@ -442,6 +442,8 @@ The two tools are complementary, not duplicative. See
 | An AOT query (substrate for forms, tiles, views, XDS policies) | `dynamics-xpp:xpp-query` |
 | An AxView (read-only table-like, backed by a query) | `dynamics-xpp:xpp-view` |
 | A custom service (SOAP/REST endpoint over X++ class methods) | `dynamics-xpp:xpp-service` |
+| A batch / long-running job (sweep, recurring process, parallel workers) | `dynamics-xpp:xpp-batch` |
+| A custom form control (board / timeline / chart / bespoke editor — a `FormTemplateControl` subclass + build class + Html/JS/CSS resources) | `dynamics-xpp:xpp-custom-control` |
 
 The pattern skills (`dynamics-xpp:xpp-pattern-simple-list`,
 `dynamics-xpp:xpp-pattern-details-master`, etc. — kebab-case names) exist for

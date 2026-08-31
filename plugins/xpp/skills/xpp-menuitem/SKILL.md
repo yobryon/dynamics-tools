@@ -29,8 +29,14 @@ three together. Differences are called out inline.
 
 - You created a form and need it reachable from a menu / button —
   write a Display menu item.
-- You created a Runnable class (extends `RunBaseBatch`,
-  `SysOperationServiceBase`, or has `main()`) — write an Action.
+- You created a Runnable class (a controller with `main()`) — write an Action.
+  > **Authoring a new batch/dialog job? Use SysOperation, not `RunBaseBatch`.**
+  > Point the Action at a `SysOperationServiceController` (or a subclass with
+  > `main()`); the data contract gives you serialization + the dialog for free.
+  > `RunBaseBatch` is legacy — use it only when modifying an existing one. Load
+  > `dynamics-xpp:xpp-batch` before writing the class. Don't default to
+  > `RunBaseBatch` just because it's more common in the corpus; for a decade-old
+  > platform "most common" and "current" are usually opposite.
 - You created an SSRS report controller — write an Output.
 - You're wiring `AxSecurityPrivilege.EntryPoints` and need the
   menu item to point at.

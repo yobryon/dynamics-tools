@@ -579,6 +579,11 @@ The `xpp://schema/AxClass` XSD is the formal grammar but won't catch:
   extensions, delegates and event handlers
 - `dynamics-xpp:xpp-table` — for table authoring (the other big surface)
 - `dynamics-xpp:xpp-form` — for form classes specifically
+- `dynamics-xpp:xpp-batch` — when the class is a batch/long-running **job**
+  (a sweep, recurring process, import). Use the SysOperation triple (contract +
+  service + controller), not `RunBaseBatch` — don't hand-write `pack`/`unpack`.
+- `dynamics-xpp:xpp-custom-control` — when the class is a custom form control's
+  `FormTemplateControl` / `FormBuildControl` / `[DataContract]` set
 - `xpp://schema/AxClass` — authoritative XSD (used by the
   `xpp_create_object` escape hatch)
 
