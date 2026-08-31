@@ -77,9 +77,29 @@ reconnect to the newer (compatible) service and keep working.
    the old exited cleanly without needing the kill, the new one spawned from
    the expected path, and exactly one service remained. The reverse (0.0.8 MCP
    vs 0.1.0 service) correctly connected as a client and left it running.
-3. **Loud downgrade refusal.** Service startup: if stored DB `schema_version` >
-   `SchemaInstaller.CurrentVersion`, refuse to launch (clean exit + message →
-   `dt cache clear`), rather than the current bridge-the-gap throw.
+3. **Loud downgrade refusal** *(done)*. Migrations are forward-only, so a cache
+   written by a newer build is unreadable to an older one — the single failure
+   mode that silently corrupts the index. `SchemaInstaller.PeekStoredVersion`
+   reads the stored version straight off the file, read-only, and startup makes
+   the call BEFORE building the host: stored > `CurrentVersion` → print the two
+   ways forward and exit 78 (EX_CONFIG, so callers can tell it from a crash).
+   Nothing is touched. Deliberately not self-healing — clearing the cache costs
+   a full re-index plus a real embedding bill, and the usual cause is a stale
+   session the user can simply close, so it stays a user decision.
+
+   `EnsureSchema` keeps its own guard (`SchemaDowngradeException`) as a
+   backstop for a cache swapped between the peek and the first open, and
+   `Program` unwraps it to the same message.
+
+   *Why the pre-host probe rather than just catching the throw:* the first
+   attempt did exactly that and the result was unusable. `EnsureSchema` runs
+   inside a hosted service, by which point the lifecycle, embedder and DB
+   initializer are all opening the cache concurrently — the console filled with
+   duplicate stack traces, the bridge pool had already spawned, and the process
+   died on an unrelated teardown bug (`IndexWriter.DisposeAsync` cancelling an
+   already-disposed CTS) that MASKED the real error entirely. That bug is fixed
+   too — stop/dispose are now idempotent — because it turned *any* host-start
+   failure into an unhandled crash with the cause buried.
 4. **`dt` CLI** (PowerShell, Windows-only, `~/.local/bin/dt.cmd` shim forwarding
    to the marketplace-clone script — mirrors `mcc`). v1 surface: `setup`,
    `update`, `version`, `status`, `service restart|stop`, `cache clear`. Fast

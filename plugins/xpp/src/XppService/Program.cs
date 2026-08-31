@@ -32,6 +32,12 @@ using Xpp.Service.Storage;
 
 const int ExitCodeAlreadyRunning = 75;
 
+// Exit code 78 (EX_CONFIG) — the box is configured in a way this build can't
+// work with, and no amount of retrying fixes it. Used for the schema-downgrade
+// refusal below, so callers can tell "wrong build for this cache" apart from
+// a crash.
+const int ExitCodeSchemaDowngrade = 78;
+
 SingleInstanceLock? singleInstanceLock;
 try
 {
@@ -147,6 +153,23 @@ try
         dataDir = Path.GetFullPath(dataDir, AppContext.BaseDirectory);
     }
     var dbPath = Path.Combine(dataDir, "v2-index.db");
+
+    // === Downgrade refusal ==============================================
+    // Migrations are forward-only, so a cache written by a NEWER plugin build
+    // is unreadable to this one, and running against it anyway is the one
+    // failure mode that silently corrupts the user's index.
+    //
+    // Checked HERE, before the host is built, because it's the only place the
+    // answer can be delivered as a single clear message: once the host starts,
+    // the lifecycle, embedder and DB initializer all open the cache
+    // concurrently and each throws its own copy. See
+    // docs/versioning-and-servicing-design.md.
+    var storedSchema = SchemaInstaller.PeekStoredVersion(dbPath);
+    if (storedSchema > SchemaInstaller.CurrentVersion)
+    {
+        WriteDowngradeRefusal(storedSchema.Value, SchemaInstaller.CurrentVersion, dbPath);
+        return ExitCodeSchemaDowngrade;
+    }
 
     builder.Services.AddSingleton(new IndexDatabaseOptions { DatabasePath = dbPath });
 
@@ -274,9 +297,67 @@ try
     await app.RunAsync();
     return 0;
 }
+catch (Exception ex) when (FindDowngrade(ex) is { } downgrade)
+{
+    // Backstop for the race the pre-host probe can't cover: the cache being
+    // replaced by a newer build between our peek and the first open. Same
+    // message, so the user can't tell which path caught it.
+    WriteDowngradeRefusal(downgrade.StoredVersion, downgrade.ExpectedVersion, null);
+    return ExitCodeSchemaDowngrade;
+}
 finally
 {
     singleInstanceLock.Dispose();
+}
+
+// A downgrade is a user-actionable situation, not a crash: print the choices
+// plainly and exit clean. A stack trace here would bury the one line that
+// matters, and this path is reached on a perfectly normal launch of an older
+// plugin build against a newer cache.
+//
+// Deliberately NOT self-healing. Clearing the cache costs a full re-index and
+// a real embedding bill, and the usual cause is a stale session the user can
+// just close — so we name the situation and let them choose.
+static void WriteDowngradeRefusal(int stored, int expected, string? dbPath)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("XppService refused to start: the index cache is newer than this build.");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine($"  cache schema version : {stored}");
+    Console.Error.WriteLine($"  this build understands: {expected}");
+    if (dbPath != null)
+        Console.Error.WriteLine($"  cache file           : {dbPath}");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("  A newer dynamics-xpp plugin has used this cache. Migrations are forward-only,");
+    Console.Error.WriteLine("  so running this build against it would corrupt the index. Nothing was touched.");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("  Two ways forward:");
+    Console.Error.WriteLine("    1. Run the newer build - usually just close the stale session, or 'dt update'.");
+    Console.Error.WriteLine("    2. Discard the cache and re-index from scratch: 'dt cache clear'.");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("  Option 2 costs a full re-index and re-embedding, so prefer option 1.");
+    Console.Error.WriteLine();
+}
+
+// The backstop's exception reaches us wrapped (AggregateException, or a
+// host-startup wrapper), so walk the chain rather than matching the top type.
+static SchemaDowngradeException? FindDowngrade(Exception? ex)
+{
+    while (ex != null)
+    {
+        if (ex is SchemaDowngradeException d) return d;
+        if (ex is AggregateException agg)
+        {
+            foreach (var inner in agg.InnerExceptions)
+            {
+                var found = FindDowngrade(inner);
+                if (found != null) return found;
+            }
+            return null;
+        }
+        ex = ex.InnerException;
+    }
+    return null;
 }
 
 // =============================================================================

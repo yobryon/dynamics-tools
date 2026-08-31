@@ -7,18 +7,18 @@ namespace Xpp.Service.Storage;
 /// Applies the v2 schema to a freshly created database, and validates the
 /// version of an existing one.
 ///
-/// Migration policy for now: there is no migration. If the stored schema
-/// version doesn't equal <see cref="CurrentVersion"/>, we throw and tell the
-/// user to delete the database file. This is honest about where we are —
-/// nothing has shipped, the schema is still settling, and a real migration
-/// framework would just be ceremony around "drop and rebuild" until we have
-/// users who care about preserving their index across upgrades.
+/// Migration policy: forward-only. <see cref="Migrations"/> lists the ordered
+/// scripts; on startup we apply every one the stored version is behind on. Each
+/// script must set schema_version.version to its own sequence number, which is
+/// how we verify it actually ran.
 ///
-/// When that day comes:
-///   - add ../Schema/002-*.sql (and 003-, etc.) with idempotent migration steps
-///   - track which migrations have been applied (a second column on
-///     schema_version, or a separate `migrations` table)
-///   - apply in order on startup when behind
+/// To add a migration: drop ../Schema/00N-*.sql in (idempotent steps, ending in
+/// the version bump), register it here, and raise
+/// <see cref="CurrentVersion"/>.
+///
+/// The reverse direction is a hard stop. A cache written by a NEWER build can't
+/// be understood by this one, so we throw <see cref="SchemaDowngradeException"/>
+/// rather than run against it — see the guard in <see cref="EnsureSchema"/>.
 /// </summary>
 public sealed class SchemaInstaller
 {
@@ -48,6 +48,39 @@ public sealed class SchemaInstaller
     /// followed by all migrations in order. If it has a prior version,
     /// apply just the pending migrations. If already current, no-op.
     /// </summary>
+    /// <summary>
+    /// Read the stored schema version straight off a database file without
+    /// going through <see cref="IndexDatabase"/>. Returns null when the file
+    /// doesn't exist yet, has no schema, or can't be read.
+    ///
+    /// Exists so startup can make the downgrade decision ONCE, before the host
+    /// is built. The guard inside <see cref="EnsureSchema"/> is correct but
+    /// fires too late to be usable as a user-facing message: by then the
+    /// lifecycle, embedder and initializer are all opening the DB
+    /// concurrently, and the console fills with duplicate stack traces from
+    /// whichever one lost the race.
+    /// </summary>
+    public static int? PeekStoredVersion(string databasePath)
+    {
+        if (!File.Exists(databasePath)) return null;
+
+        try
+        {
+            // Read-only, and Mode=ReadOnly means we can't create or migrate
+            // anything by accident on this path.
+            using var conn = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly");
+            conn.Open();
+            if (!TableExists(conn, "schema_version")) return null;
+            return ReadStoredVersion(conn);
+        }
+        catch
+        {
+            // Unreadable/locked/corrupt: not our call to make here. Let the
+            // normal open path produce the real error.
+            return null;
+        }
+    }
+
     public void EnsureSchema(SqliteConnection connection)
     {
         var hasSchema = TableExists(connection, "schema_version");
@@ -58,6 +91,23 @@ public sealed class SchemaInstaller
         }
 
         var current = ReadStoredVersion(connection);
+
+        // Downgrade guard. Migrations are forward-only, so a database written
+        // by a NEWER build can hold columns, tables and semantics this build
+        // knows nothing about. Running against it anyway is the one failure
+        // mode that silently corrupts the user's index, so we refuse before
+        // touching anything.
+        //
+        // Deliberately not self-healing: nuking the cache would be a
+        // multi-hour re-index plus a real embedding bill, and the usual cause
+        // is a stale session that the user can simply close. So we stop, name
+        // both versions, and hand them the two choices. See
+        // docs/versioning-and-servicing-design.md.
+        if (current > CurrentVersion)
+        {
+            throw new SchemaDowngradeException(current, CurrentVersion);
+        }
+
         foreach (var (version, script) in Migrations)
         {
             if (current >= version) continue;
@@ -202,5 +252,25 @@ public sealed class SchemaInstaller
         using var cmd = connection.CreateCommand();
         cmd.CommandText = sql;
         cmd.ExecuteNonQuery();
+    }
+}
+
+/// <summary>
+/// Thrown when the cache database was written by a newer build than the one
+/// trying to open it. Carries both versions so the startup path can print an
+/// actionable message instead of a stack trace.
+/// </summary>
+public sealed class SchemaDowngradeException : Exception
+{
+    public int StoredVersion { get; }
+    public int ExpectedVersion { get; }
+
+    public SchemaDowngradeException(int storedVersion, int expectedVersion)
+        : base($"The index cache is at schema version {storedVersion}, but this build of XppService " +
+               $"only understands version {expectedVersion}. A newer version of the dynamics-xpp plugin " +
+               $"has used this cache, and the schema is forward-only.")
+    {
+        StoredVersion = storedVersion;
+        ExpectedVersion = expectedVersion;
     }
 }

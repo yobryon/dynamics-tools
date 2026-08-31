@@ -30,6 +30,8 @@ public sealed class IndexWriter : IHostedService, IAsyncDisposable
     private readonly Channel<WriteEnvelope> _channel;
     private Task? _loop;
     private readonly CancellationTokenSource _stopCts = new();
+    private bool _stopped;
+    private bool _disposed;
 
     public IndexWriter(IndexDatabase db, ILogger<IndexWriter> logger)
     {
@@ -51,7 +53,16 @@ public sealed class IndexWriter : IHostedService, IAsyncDisposable
     public async Task StopAsync(CancellationToken ct)
     {
         _channel.Writer.TryComplete();
-        _stopCts.Cancel();
+        // Idempotent: we are both a hosted service and a disposable singleton,
+        // so the host's stop and the DI container's disposal both land here.
+        // Cancelling a disposed CTS throws, and an exception escaping shutdown
+        // MASKS whatever actually went wrong — that's how a clean
+        // "refusing to start" turned into an unhandled crash.
+        if (!_stopped)
+        {
+            _stopped = true;
+            try { _stopCts.Cancel(); } catch (ObjectDisposedException) { }
+        }
         if (_loop != null)
         {
             try { await _loop.WaitAsync(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false); }
@@ -61,6 +72,8 @@ public sealed class IndexWriter : IHostedService, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed) return;
+        _disposed = true;
         await StopAsync(CancellationToken.None).ConfigureAwait(false);
         _stopCts.Dispose();
     }
