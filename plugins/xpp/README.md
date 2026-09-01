@@ -42,16 +42,19 @@ plugin lets Claude work alongside you in the same codebase:
   the changes are already in your project — no manual "add to
   project" step.
 
-The skill fleet is **23 skills today**:
+The skill fleet is **37 skills today**:
 
 | Family | Skills |
 |---|---|
 | Onboarding | `dynamics-xpp:xpp-setup` (once per machine), `dynamics-xpp:xpp-project` (once per repo) |
 | Anchor + language | `dynamics-xpp:xpp-language`, `dynamics-xpp:xpp-data` |
-| Per-AOT-type | `dynamics-xpp:xpp-class`, `dynamics-xpp:xpp-table`, `dynamics-xpp:xpp-form`, `dynamics-xpp:xpp-edt`, `dynamics-xpp:xpp-enum`, `dynamics-xpp:xpp-labelfile`, `dynamics-xpp:xpp-extension` |
+| Per-AOT-type | `dynamics-xpp:xpp-class`, `dynamics-xpp:xpp-table`, `dynamics-xpp:xpp-form`, `dynamics-xpp:xpp-edt`, `dynamics-xpp:xpp-enum`, `dynamics-xpp:xpp-labelfile`, `dynamics-xpp:xpp-extension`, `dynamics-xpp:xpp-query`, `dynamics-xpp:xpp-view`, `dynamics-xpp:xpp-dataentityview`, `dynamics-xpp:xpp-menu`, `dynamics-xpp:xpp-menuitem`, `dynamics-xpp:xpp-security`, `dynamics-xpp:xpp-service`, `dynamics-xpp:xpp-tile`, `dynamics-xpp:xpp-resource` |
+| Authoring topics | `dynamics-xpp:xpp-custom-control`, `dynamics-xpp:xpp-batch`, `dynamics-xpp:xpp-navigation` |
 | Per-form-pattern (10) | `dynamics-xpp:xpp-pattern-simple-list`, `dynamics-xpp:xpp-pattern-simple-list-details`, `dynamics-xpp:xpp-pattern-details-master`, `dynamics-xpp:xpp-pattern-details-transaction`, `dynamics-xpp:xpp-pattern-list-page`, `dynamics-xpp:xpp-pattern-task`, `dynamics-xpp:xpp-pattern-task-parent-child`, `dynamics-xpp:xpp-pattern-wizard`, `dynamics-xpp:xpp-pattern-table-of-contents`, `dynamics-xpp:xpp-pattern-workspace-operational` |
 | Sub-patterns catalog | `dynamics-xpp:xpp-form-subpatterns` |
 | Wireframing | `dynamics-xpp:xpp-wireframe` |
+| Source control | `dynamics-xpp:xpp-scm-tfvc` |
+| Reporting friction | `dynamics-xpp:xpp-feedback` |
 
 You don't typically invoke these directly. They self-activate when
 you ask Claude to do something relevant ("create a table for X",
@@ -70,7 +73,7 @@ environment). Bring your own:
 2. **The "Dynamics 365 Finance and Operations Tools" extension**
    for VS 2022 (from the VS Marketplace). The plugin uses this
    extension's `Microsoft.Dynamics.AX.Metadata.*` DLLs.
-3. **.NET 9 SDK** (any 9.0.x). Verify with `dotnet --list-sdks`.
+3. **.NET 10 SDK** (any 10.0.x). Verify with `dotnet --list-sdks`.
 4. **A working F&O dev environment** —
    `PackagesLocalDirectory` accessible, your model deployed,
    AOS running.
@@ -89,7 +92,7 @@ codebase.
 In any Claude Code session:
 
 ```
-/plugin marketplace add https://github.com/<owner>/dynamics-xpp
+/plugin marketplace add https://github.com/yobryon/dynamics-tools
 ```
 
 (Or use the local-directory form if you've cloned this repo.)
@@ -102,32 +105,49 @@ In any Claude Code session:
 
 ### Step 3 — First-time setup (once per dev machine)
 
-After installing, in any Claude Code session on your dev box,
-just ask:
-
-> "Help me set up the dynamics-xpp plugin."
-
-Claude loads the `dynamics-xpp:xpp-setup` skill and walks through:
-
-1. Finding your VS 2022 D365 extension on disk.
-2. Writing a per-machine `BridgeReferences.props` so the plugin's
-   bridge can resolve the D365 metadata DLLs.
-
-That's it — no build step. The plugin's `.mcp.json` launches the
-MCP server via `dotnet run`, which auto-builds on first invocation
-and incrementally rebuilds whenever source changes (after a plugin
-update). You only need to re-run setup if you change machines or
-the VS 2022 D365 extension gets reinstalled.
-
-If you prefer to drive it from a script, use the `dt` CLI, which
-does the discovery, the build, and puts itself on your PATH:
+The plugin needs to know where your D365 metadata assemblies live.
+Run the bundled `dt` CLI once, from a PowerShell prompt on your dev
+box:
 
 ```powershell
-cd <plugin install dir>
+cd $env:USERPROFILE\.claude\plugins\marketplaces\dynamics-tools\plugins\xpp
 .\tools\dt.cmd setup
 ```
 
-See [The `dt` CLI](#the-dt-cli) below for what else it does.
+That does three things: finds the D365 metadata assemblies, builds
+the server, and installs `dt` to `~/.local/bin/dt.cmd` so that from
+now on you can just type `dt` from anywhere. Check it worked:
+
+```powershell
+dt status
+```
+
+If `dt` isn't found afterwards, `~/.local/bin` isn't on your PATH —
+`dt setup` tells you so and prints the command to add it. Until you
+do, call it by its full path.
+
+You only need to re-run setup if you change machines, or if your
+D365 install moves.
+
+<details>
+<summary>Prefer to have Claude do it?</summary>
+
+In any Claude Code session on your dev box, ask:
+
+> "Help me set up the dynamics-xpp plugin."
+
+Claude loads the `dynamics-xpp:xpp-setup` skill and walks through
+the same discovery, writing the per-machine `BridgeReferences.props`
+that lets the plugin's bridge resolve the D365 metadata DLLs. This
+path skips the build — the plugin's `.mcp.json` launches the MCP
+server via `dotnet run`, which auto-builds on first invocation — so
+your first tool call takes 15-30 seconds longer. You won't get the
+`dt` command on your PATH this way; run `dt setup` later if you want
+it.
+
+</details>
+
+See [The `dt` CLI](#the-dt-cli) below for what else `dt` does.
 
 ### Step 4 — Reload the plugin
 

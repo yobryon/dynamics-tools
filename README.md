@@ -48,11 +48,12 @@ cloud dependency.
 
 Source distribution. The plugin ships C# source; users build it
 once during install. The build step is essentially free because
-the bridge needs per-machine D365 DLL references anyway (resolved
-by `tools/dev.ps1 -Action setup`).
+the bridge needs per-machine D365 DLL references anyway (both are
+handled by `dt setup`).
 
 See [`plugins/xpp/README.md`](./plugins/xpp/README.md) for the
-user-facing install story.
+user-facing install story, and [`CHANGELOG.md`](./CHANGELOG.md) for
+what has changed between releases.
 
 ## License
 
