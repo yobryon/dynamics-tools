@@ -81,22 +81,40 @@ switch ($Action) {
         # <PackagesLocalDirectory>\bin. This path is STABLE across D365 SDK
         # updates -- unlike the VS2022 extension folder, whose name is
         # randomized and re-created on every platform update, which used to
-        # break the bridge build after every update. Read the packages path
-        # from the service's appsettings.json so setup and the running service
-        # resolve against one source of truth.
-        $packages = $null
+        # break the bridge build after every update.
+        #
+        # DISCOVER the packages directory; never assume a drive letter. An
+        # LCS-deployed VM puts the metadata store wherever the deployment
+        # chose -- this was hardcoded to J: and simply did not work on a box
+        # that had it on K:. See tools/D365Discovery.ps1 for the ladder.
+        . (Join-Path $PSScriptRoot 'D365Discovery.ps1')
+
+        # An explicit appsettings value still wins, but only if it validates;
+        # otherwise we fall through to discovery rather than failing on it.
+        $configured = $null
         $appSettings = Join-Path $repoRoot 'src/XppService/appsettings.json'
         if (Test-Path $appSettings) {
             try {
                 $cfg = Get-Content $appSettings -Raw | ConvertFrom-Json
                 if ($cfg.D365 -and $cfg.D365.PackagesLocalDirectory) {
-                    $packages = $cfg.D365.PackagesLocalDirectory
+                    $configured = $cfg.D365.PackagesLocalDirectory
                 }
             } catch {
-                Write-Warn "Could not parse appsettings.json ($($_.Exception.Message)); using default packages path."
+                Write-Warn "Could not parse appsettings.json ($($_.Exception.Message)); relying on discovery."
             }
         }
-        if (-not $packages) { $packages = 'J:\AosService\PackagesLocalDirectory' }
+
+        $trace = $null
+        $packages = Find-D365PackagesDirectory -Explicit $configured -Trace ([ref]$trace)
+        if (-not $packages) {
+            Write-Fail 'Could not locate the D365 PackagesLocalDirectory on this machine.'
+            Write-Fail 'Tried:'
+            $trace | ForEach-Object { Write-Fail "  - $_" }
+            Write-Fail 'Set it explicitly in %LOCALAPPDATA%\dynamics-xpp\config.json under D365:PackagesLocalDirectory.'
+            exit 1
+        }
+        Write-Ok "PackagesLocalDirectory: $packages"
+        $trace | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
 
         $refPath  = $null
         $refLabel = $null
@@ -194,6 +212,40 @@ switch ($Action) {
 "@
         Set-Content -Path $propsPath -Value $props -Encoding UTF8 -NoNewline
         Write-Ok "Wrote $propsPath"
+
+        # Persist the discovered packages path where the SERVICE will read it.
+        # XppService overlays %LOCALAPPDATA%\dynamics-xpp\config.json on top of
+        # its shipped appsettings.json, so writing here means the service and
+        # the bridge resolve the same directory setup just validated -- without
+        # editing a tracked file, and without any drive letter baked into the
+        # repo. Merge rather than overwrite: this file also carries the user's
+        # bridge-pool tuning.
+        $globalDir = Join-Path $env:LOCALAPPDATA 'dynamics-xpp'
+        if (-not (Test-Path $globalDir)) { New-Item -ItemType Directory -Path $globalDir -Force | Out-Null }
+        $globalCfgPath = Join-Path $globalDir 'config.json'
+
+        $globalCfg = $null
+        if (Test-Path $globalCfgPath) {
+            try { $globalCfg = Get-Content $globalCfgPath -Raw | ConvertFrom-Json }
+            catch { Write-Warn "Existing $globalCfgPath is not valid JSON; leaving it alone." }
+        }
+        if ($null -eq $globalCfg) { $globalCfg = [pscustomobject]@{} }
+
+        $d365 = [pscustomobject]@{
+            PackagesLocalDirectory = $packages
+            CustomMetadataPath     = $packages
+        }
+        if ($globalCfg.PSObject.Properties['D365']) { $globalCfg.D365 = $d365 }
+        else { $globalCfg | Add-Member -NotePropertyName 'D365' -NotePropertyValue $d365 }
+
+        try {
+            $globalCfg | ConvertTo-Json -Depth 10 | Set-Content -Path $globalCfgPath -Encoding UTF8
+            Write-Ok "Recorded packages path in $globalCfgPath"
+        } catch {
+            Write-Warn "Could not write $globalCfgPath ($($_.Exception.Message))."
+            Write-Warn 'The build will work, but the service may not find the metadata store.'
+        }
+
         Write-Ok 'Setup complete; run "build" next.'
     }
     'build' {

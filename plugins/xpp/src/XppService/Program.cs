@@ -88,8 +88,22 @@ try
             "\nBuild the bridge or set XppService:BridgeExecutable / XPP_BRIDGE_EXE.");
     }
 
-    var packagesPath = builder.Configuration["D365:PackagesLocalDirectory"] ?? string.Empty;
-    var customPath   = builder.Configuration["D365:CustomMetadataPath"] ?? string.Empty;
+    // === D365 metadata store =============================================
+    // Normally dt setup discovers this and records it in the user-global
+    // config.json that we overlaid above. If it is missing or stale, fall
+    // back to discovering it ourselves rather than failing: a hardcoded
+    // drive letter is wrong on any box whose LCS deployment chose a
+    // different drive, which is exactly how this used to break.
+    var configuredPackages = builder.Configuration["D365:PackagesLocalDirectory"] ?? string.Empty;
+    var packagesPath = D365Locator.Resolve(configuredPackages, out var packagesTrace) ?? string.Empty;
+
+    var customPath = builder.Configuration["D365:CustomMetadataPath"] ?? string.Empty;
+    // The custom-metadata path defaults to the packages directory, and a
+    // configured value that no longer exists is worse than that default.
+    if (string.IsNullOrWhiteSpace(customPath) || !Directory.Exists(customPath))
+    {
+        customPath = packagesPath;
+    }
 
     // Dynamic pool bounds. Defaults: Min=2 (kept warm so queries never pay
     // cold-start), Max=max(2, ProcessorCount-1) (leave a core for the service
@@ -293,6 +307,21 @@ try
     app.MapGrpcService<PingGrpcService>();
 
     app.Logger.LogInformation("XppService starting; pipe={Pipe}, bridge={Bridge}", pipeName, bridgePath);
+
+    // Say which metadata store we landed on and how we decided. When this is
+    // wrong, it is the single most useful line in the log.
+    if (string.IsNullOrEmpty(packagesPath))
+    {
+        app.Logger.LogError(
+            "No D365 PackagesLocalDirectory found - metadata calls will fail. Tried:\n{Trace}\n" +
+            "Run 'dt setup', or set D365:PackagesLocalDirectory in {Config}.",
+            string.Join(Environment.NewLine, packagesTrace.Select(t => "  - " + t)), globalConfigPath);
+    }
+    else
+    {
+        app.Logger.LogInformation("D365 metadata store: {Packages}", packagesPath);
+        foreach (var t in packagesTrace) app.Logger.LogDebug("  packages discovery: {Step}", t);
+    }
 
     await app.RunAsync();
     return 0;

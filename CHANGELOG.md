@@ -65,6 +65,13 @@ last week's code indefinitely, with nothing to tell you. There is also a new
 
 ### Fixed
 
+- **The metadata store is now discovered, not assumed to be on `J:`.** The
+  packages directory was hardcoded, so the plugin simply did not work on a dev
+  box whose LCS deployment put it on another drive. Setup now finds it from the
+  AOS's own `web.config`, from `DynamicsDevConfig.xml`, or by scanning fixed
+  drives, validates the candidate before accepting it, and records the answer
+  where the service reads it. The service can also discover it unaided if that
+  record is missing. Every rung is reported, so a failure says what was tried.
 - **`xpp_delete_object` reported success while leaving the file on disk.** When
   a project had no `scm` block, the delete silently did nothing but claimed it
   had worked. `fileRemoved` is now a true post-condition, and if the file

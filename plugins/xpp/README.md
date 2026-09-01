@@ -116,7 +116,15 @@ cd $env:USERPROFILE\.claude\plugins\marketplaces\dynamics-tools\plugins\xpp
 
 That does three things: finds the D365 metadata assemblies, builds
 the server, and installs `dt` to `~/.local/bin/dt.cmd` so that from
-now on you can just type `dt` from anywhere. Check it worked:
+now on you can just type `dt` from anywhere.
+
+Your metadata store does *not* have to be on any particular drive.
+Setup discovers it — from the AOS's own `web.config`, from
+`DynamicsDevConfig.xml`, or by scanning your fixed drives — and
+prints what it found and how. If it can't find it, it tells you
+exactly what it tried and how to set the path explicitly.
+
+Check it worked:
 
 ```powershell
 dt status
