@@ -100,7 +100,7 @@ reconnect to the newer (compatible) service and keep working.
    already-disposed CTS) that MASKED the real error entirely. That bug is fixed
    too — stop/dispose are now idempotent — because it turned *any* host-start
    failure into an unhandled crash with the cause buried.
-4. **`dt` CLI** (PowerShell, Windows-only, `~/.local/bin/dt.cmd` shim forwarding
+4. **`dt` CLI** *(done)* (PowerShell, Windows-only, `~/.local/bin/dt.cmd` shim forwarding
    to the marketplace-clone script — mirrors `mcc`). v1 surface: `setup`,
    `update`, `version`, `status`, `service restart|stop`, `cache clear`. Fast
    follow: `project init|status`. Maintainer commands stay in `dev.ps1`.
@@ -112,6 +112,28 @@ reconnect to the newer (compatible) service and keep working.
      bridge deps), so it builds without the D365 extension located. `dt setup`
      builds it; `dt status` invokes the prebuilt exe; graceful when
      absent ("run `dt setup`") or pipe-dead ("service not running").
+
+   As built: `tools/dt.ps1` + `tools/dt.cmd`, shipped with the plugin, with
+   `dt setup` writing a *forwarding* shim to `~/.local/bin/dt.cmd` so `dt
+   update` updates the CLI too. The probe gained `--shutdown` (so `dt service
+   stop` uses the same graceful RequestShutdown as the takeover, rather than
+   killing a process mid-write), `plugin_version` + `process_id` on
+   `StatusResponse` (so a status read answers "which build am I talking to?"
+   without a Ping dragging in the bridge), and exit code 3 for "nothing is
+   listening" so a stopped service reads as a state, not an error.
+
+   Gotchas worth remembering, all found by running it:
+   - `$pid` is a read-only PowerShell automatic variable.
+   - No `?:`/`??`/`?.` — this has to run on Windows PowerShell 5.1.
+   - `%errorlevel%` inside a parenthesized `cmd` `if` block expands at PARSE
+     time, so `exit /b %errorlevel%` there silently returns success. The shim
+     uses `goto` instead.
+   - Calling a `.ps1` does NOT set `$LASTEXITCODE`; checking it after
+     `& dev.ps1` reads a stale value from some earlier native command. Verify
+     the artifact instead.
+   - `PATHEXT` resolves `.BAT` before `.CMD`, so a leftover `dt.bat` (the old
+     force-reinstall script) shadows the new shim. `dt setup` detects this and
+     says so rather than leaving a confusing no-op.
 
 ## Related musing (deferred)
 

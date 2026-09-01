@@ -15,14 +15,22 @@
 //   default mode: pings the service and asks for status.
 //   --rebuild mode: triggers RebuildIndex scoped to one model, then verifies
 //                   GetStatus reports >0 objects indexed.
+//   XppService.PingProbe.exe --shutdown [pipe-name]
+//
 //   --status mode: emits one line of JSON to stdout with the status fields.
-//                  Designed to be parsed by xpp-status.ps1 (or any other
-//                  consumer) — no human-formatted logging on stdout. All
+//                  Designed to be parsed by dt.ps1 / xpp-status.ps1 (or any
+//                  other consumer) — no human-formatted logging on stdout. All
 //                  diagnostics go to stderr.
+//   --shutdown mode: asks the running service to stop gracefully (the same RPC
+//                  the newest-wins takeover uses) and reports the outcome as
+//                  JSON. Backs 'dt service stop'.
 //
 // Exit codes:
 //   0   all probe steps succeeded
 //   1   any RPC failed, echo mismatch, or post-rebuild status didn't update
+//   3   (--status / --shutdown only) nothing is listening on the pipe. A
+//       normal state, not a failure — kept distinct so the dt CLI can say
+//       "service not running" instead of reporting an error.
 
 using System.Collections.Generic;
 using System.IO;
@@ -36,6 +44,12 @@ string pipeName;
 string echo;
 string? rebuildModel = null;
 bool statusOnly = false;
+bool shutdownMode = false;
+
+// Exit code for "there is no service listening". Distinct from 1 (a real
+// failure) so the dt CLI can say "service not running" -- an ordinary,
+// expected state -- instead of reporting an error.
+const int ExitNotRunning = 3;
 string? dumpModel = null;
 string dumpOut = "dump";
 string[]? dumpTypeFilter = null;
@@ -60,6 +74,12 @@ if (args.Length > 0 && args[0] == "--rebuild")
 else if (args.Length > 0 && args[0] == "--status")
 {
     statusOnly = true;
+    pipeName = args.Length > 1 ? args[1] : "xpp-service-v2";
+    echo = string.Empty;
+}
+else if (args.Length > 0 && args[0] == "--shutdown")
+{
+    shutdownMode = true;
     pipeName = args.Length > 1 ? args[1] : "xpp-service-v2";
     echo = string.Empty;
 }
@@ -125,6 +145,17 @@ else
     echo = args.Length > 1 ? args[1] : $"probe-{Guid.NewGuid():N}".Substring(0, 12);
 }
 
+// The machine-readable modes are consumed by the dt CLI, where "the service
+// isn't running" is a normal answer rather than a failure. Check for the pipe
+// before dialing so we can report that cleanly instead of surfacing a gRPC
+// connect exception. (Only these modes: the interactive/dev modes below are
+// better served by the real error.)
+if ((statusOnly || shutdownMode) && !PipeExists(pipeName))
+{
+    Console.WriteLine(JsonSerializer.Serialize(new { running = false, pipe = pipeName }));
+    return ExitNotRunning;
+}
+
 try
 {
     var connectionFactory = new NamedPipeConnectionFactory(pipeName);
@@ -135,6 +166,24 @@ try
         new GrpcChannelOptions { HttpHandler = handler, UnsafeUseInsecureChannelCallCredentials = false });
 
     var client = new XppService.XppServiceClient(channel);
+
+    // --- Shutdown mode: ask the running service to stop, gracefully. Same
+    // RPC the newest-wins takeover uses, so 'dt service stop' drains in-flight
+    // work and checkpoints the DB rather than killing the process.
+    if (shutdownMode)
+    {
+        var sd = await client.RequestShutdownAsync(
+            new ShutdownRequest { Reason = "requested via dt service stop" },
+            deadline: DateTime.UtcNow.AddSeconds(15));
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            running = true,
+            accepted = sd.Accepted,
+            processId = sd.ProcessId,
+            pluginVersion = sd.PluginVersion,
+        }));
+        return sd.Accepted ? 0 : 1;
+    }
 
     // --- Status-only mode: single GetStatus call, JSON to stdout, done.
     if (statusOnly)
@@ -147,6 +196,9 @@ try
             deadline: DateTime.UtcNow.AddSeconds(30));
         var payload = new
         {
+            running          = true,
+            pluginVersion    = s.PluginVersion,
+            processId        = s.ProcessId,
             bridgeHealthy    = s.BridgeHealthy,
             indexState       = s.IndexState,
             indexReady       = s.IndexReady,
@@ -508,6 +560,25 @@ static async Task<bool> RunSearchSmokeAsync(XppService.XppServiceClient client)
     {
         Console.Error.WriteLine($"FAIL: search smoke gRPC error {rex.StatusCode}: {rex.Status.Detail}");
         return false;
+    }
+}
+
+/// <summary>
+/// Is anything listening on the named pipe? Named pipes are enumerable as
+/// files under the pipe filesystem root, which is cheaper and less ambiguous
+/// than dialing. Used to answer "service not running" without an exception.
+/// </summary>
+static bool PipeExists(string pipeName)
+{
+    try
+    {
+        return Directory.EnumerateFiles(@"\\.\pipe\")
+            .Any(p => string.Equals(Path.GetFileName(p), pipeName, StringComparison.OrdinalIgnoreCase));
+    }
+    catch
+    {
+        // Can't enumerate: assume it might be there and let the dial decide.
+        return true;
     }
 }
 

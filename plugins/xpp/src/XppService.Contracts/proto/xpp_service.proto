@@ -842,6 +842,15 @@ message StatusResponse {
   // "ready". Self-healed on startup, but surfaced so a transient empty
   // window is never mistaken for a clean miss.
   bool code_search_ready = 15;
+
+  // Same value Ping reports: the plugin (marketplace) version this service was
+  // built from, as a bare comparable semver. Carried here as well so a status
+  // read can answer "which build am I actually talking to?" without a Ping,
+  // which would drag the metadata bridge into a question that doesn't need it.
+  string plugin_version = 16;
+
+  // OS process id of the service, for CLI diagnostics.
+  int32 process_id = 17;
 }
 
 // =============================================================================

@@ -311,6 +311,8 @@ public sealed partial class PingGrpcService : XppService.XppServiceBase
             EmbeddingCount = embeddingCount,
             EmbeddingTotal = embeddingTotal,
             CodeSearchReady = codeSearchReady,
+            PluginVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0",
+            ProcessId = Environment.ProcessId,
         };
     }
 

@@ -119,12 +119,15 @@ and incrementally rebuilds whenever source changes (after a plugin
 update). You only need to re-run setup if you change machines or
 the VS 2022 D365 extension gets reinstalled.
 
-If you prefer to drive it from a script:
+If you prefer to drive it from a script, use the `dt` CLI, which
+does the discovery, the build, and puts itself on your PATH:
 
 ```powershell
 cd <plugin install dir>
-.\tools\dev.ps1 -Action setup    # discovers VS, writes BridgeReferences.props
+.\tools\dt.cmd setup
 ```
+
+See [The `dt` CLI](#the-dt-cli) below for what else it does.
 
 ### Step 4 — Reload the plugin
 
@@ -213,6 +216,58 @@ In progress (on the backlog, will land soon):
 
 When these land, the loop closes: write → validate → BP-check →
 compile → sync, all driven by Claude without needing to flip to VS.
+
+## The `dt` CLI
+
+A small command-line companion for the things you do *outside* a
+Claude session: setting the plugin up, updating it, and seeing what
+the background service is doing. `dt setup` installs it to
+`~/.local/bin/dt.cmd`, so afterwards just `dt` works from anywhere.
+
+```
+dt setup             One-time machine setup: locate the D365 assemblies,
+                     build, and put dt on your PATH.
+dt update            Update the marketplace + plugin, then rebuild.
+dt version           Installed plugin version vs. the running service.
+dt status            Live service and index status.
+
+dt service status    Same as dt status.
+dt service stop      Ask the service to stop gracefully.
+dt service restart   Stop it, then start the current build.
+
+dt cache clear       Delete the index cache (costs a full re-index).
+```
+
+`dt status` is the one to reach for when something feels wrong —
+it reports whether the metadata bridge is healthy, how far the
+index has got, and how many embeddings are built:
+
+```
+  service        : plugin 0.1.0, pid 18912
+  bridge         : healthy
+  index          : sweeping (sweep in progress)
+  objects        : 269,605
+  methods        : 971,442
+  embeddings     : ready - 1,325,081 / 1,325,081 (100.0%)
+```
+
+**You rarely need `dt service restart`.** One service instance is
+shared by every session on the box, and it upgrades itself: a
+session running a newer plugin build asks the older service to
+stand down and starts its own. So after `dt update`, existing
+sessions keep using the old service until they end, and the next
+new session picks up the new one automatically.
+
+**Avoid `dt cache clear` unless you're told to.** The index is
+hard-won — a full rebuild takes a long time and re-runs embedding,
+which costs real money if semantic search is enabled. The usual
+reason to reach for it (the service refusing to start against a
+cache written by a newer build) is better fixed by closing the
+stale session or running `dt update`.
+
+Maintainer-facing actions — building one project, running a
+component in the foreground, smoke tests — stay in
+`tools/dev.ps1`.
 
 ## When the write tools refuse
 
