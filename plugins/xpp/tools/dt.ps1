@@ -57,6 +57,39 @@ $DevScript  = Join-Path $PSScriptRoot 'dev.ps1'
 # not a failure. Keep in sync with XppService.PingProbe.
 $EXIT_NOT_RUNNING = 3
 
+<#
+    Establish CLAUDE_PLUGIN_DATA before anything builds.
+
+    The bridge csproj imports BridgeReferences.props from $(CLAUDE_PLUGIN_DATA)
+    when that is set, and from next to the csproj when it isn't. Claude Code
+    sets it; the plain shell dt runs in does not. So EVERY command that builds
+    has to establish it -- not just setup. Getting that wrong is exactly how
+    'dt setup' could succeed and 'dt update' then fail to find the very props
+    file setup had just written.
+
+    Only inferred for a marketplace clone, where the layout is a known
+    convention. From a dev tree we leave it unset so the file stays next to the
+    csproj, which is where dev builds expect it.
+#>
+function Initialize-PluginDataDir {
+    # An explicit value always wins: if Claude Code (or the user) set it, that
+    # is the answer.
+    if ($env:CLAUDE_PLUGIN_DATA) { return }
+
+    if ($PluginRoot -notmatch '\\.claude\plugins\marketplaces\([^\]+)\') { return }
+    $marketplace = $Matches[1]
+    $pluginName  = Split-Path $PluginRoot -Leaf
+    $dataDir     = Join-Path $env:USERPROFILE ".claude\plugins\data\$pluginName-$marketplace"
+
+    # Don't strand an existing setup: if a props file already sits next to the
+    # csproj and the data dir has none, keep using the one that exists.
+    $adjacent = Join-Path $PluginRoot 'src\XppMetadataBridge\BridgeReferences.props'
+    $inData   = Join-Path $dataDir 'BridgeReferences.props'
+    if ((Test-Path $adjacent) -and -not (Test-Path $inData)) { return }
+
+    $env:CLAUDE_PLUGIN_DATA = $dataDir
+}
+
 function Write-Head { param([string]$m) Write-Host $m -ForegroundColor Cyan }
 function Write-Ok   { param([string]$m) Write-Host "  $m" -ForegroundColor Green }
 function Write-Warn { param([string]$m) Write-Host "  $m" -ForegroundColor Yellow }
@@ -381,22 +414,10 @@ function Cmd-Setup {
     Write-Head 'dynamics-xpp setup'
     Write-Host ''
 
-    # 1. Per-machine D365 references. dev.ps1 owns this logic (locating the
-    #    metadata assemblies and writing BridgeReferences.props); we don't
-    #    duplicate it, we point it at the right output directory.
-    #
-    #    dev.ps1 writes to CLAUDE_PLUGIN_DATA when set -- which it is under
-    #    Claude Code, but not in the plain shell dt runs in. When we're running
-    #    from a marketplace clone we know the convention, so fill it in; from a
-    #    dev tree, leave it alone so the file lands next to the csproj.
-    if (-not $env:CLAUDE_PLUGIN_DATA) {
-        if ($PluginRoot -match '\\\.claude\\plugins\\marketplaces\\([^\\]+)\\') {
-            $marketplace = $Matches[1]
-            $pluginName  = Split-Path $PluginRoot -Leaf
-            $env:CLAUDE_PLUGIN_DATA = Join-Path $env:USERPROFILE ".claude\plugins\data\$pluginName-$marketplace"
-            Write-Dim "Plugin data: $env:CLAUDE_PLUGIN_DATA"
-        }
-    }
+    # dev.ps1 owns the reference-locating logic (finding the metadata
+    # assemblies and writing BridgeReferences.props); we don't duplicate it,
+    # we just make sure -- via Initialize-PluginDataDir, run before dispatch --
+    # that it writes where the build will look.
 
     Write-Head '[1/3] Locating D365 metadata assemblies'
 
@@ -552,6 +573,8 @@ function Cmd-Update {
 # =============================================================================
 # Dispatch
 # =============================================================================
+
+Initialize-PluginDataDir
 
 switch ($Command.ToLowerInvariant()) {
     'setup'   { Cmd-Setup }
