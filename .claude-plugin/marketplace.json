@@ -9,7 +9,7 @@
             "name": "xpp",
             "source": "./plugins/xpp",
             "description": "X++ development for Microsoft Dynamics 365 Finance & Operations. Skills teach Claude to author AOT objects (tables, classes, forms, EDTs, enums, label files) and pick the right F&O form UX pattern; the bundled MCP server reads and writes via the official Microsoft.Dynamics.AX.Metadata APIs. Local-only, runs on a D365 dev VM.",
-            "version": "0.0.1"
+            "version": "0.2.0"
         }
     ]
 }

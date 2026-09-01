@@ -1,6 +1,6 @@
 {
   "name": "dynamics-xpp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Author and inspect Microsoft Dynamics 365 Finance & Operations X++ code through the dynamics-xpp server. Bundles per-AOT-type and per-form-pattern skills plus the X++ language primer.",
   "author": {
     "name": "Bryon Williams"
