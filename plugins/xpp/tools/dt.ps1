@@ -76,8 +76,17 @@ function Initialize-PluginDataDir {
     # is the answer.
     if ($env:CLAUDE_PLUGIN_DATA) { return }
 
-    if ($PluginRoot -notmatch '\\.claude\plugins\marketplaces\([^\]+)\') { return }
-    $marketplace = $Matches[1]
+    # Locate the marketplace segment by splitting the path rather than by
+    # regex: that pattern needs a pile of escaped backslashes, which is easy
+    # to get subtly wrong and then fails at RUNTIME, inside a command the user
+    # is already running. Plain string work has no such trap.
+    $marker = '.claude\plugins\marketplaces\'
+    $idx = $PluginRoot.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase)
+    if ($idx -lt 0) { return }
+    $rest = $PluginRoot.Substring($idx + $marker.Length)
+    $marketplace = ($rest -split '\\')[0]
+    if ([string]::IsNullOrWhiteSpace($marketplace)) { return }
+
     $pluginName  = Split-Path $PluginRoot -Leaf
     $dataDir     = Join-Path $env:USERPROFILE ".claude\plugins\data\$pluginName-$marketplace"
 
