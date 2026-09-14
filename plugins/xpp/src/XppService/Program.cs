@@ -145,6 +145,12 @@ try
     builder.Services.AddHostedService<BridgeLifecycle>();
     builder.Services.AddHostedService<BridgePoolScaler>();
 
+    // Live X++ debugging: one debug-bridge child (which hosts a hidden Visual
+    // Studio) per box, started on the first debug RPC, torn down with the
+    // host so an attached debugger never outlives the service.
+    builder.Services.AddSingleton<DebugBridgeHost>();
+    builder.Services.AddHostedService<DebugBridgeLifecycle>();
+
     // === Index database ==================================================
     // Default lives in %LOCALAPPDATA%\XppService\ on Windows. Survives builds,
     // branch switches, and cleans of the repo - the cache is hard-earned

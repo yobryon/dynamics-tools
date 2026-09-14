@@ -14,6 +14,7 @@
       - XppService          (src/XppService,           net9.0-windows)
       - XppService.Contracts (src/XppService.Contracts, .proto + codegen)
       - XppService.PingProbe (src/XppService.PingProbe, net9.0 — dev probe)
+      - XppDebugBridge (src/XppDebugBridge, net48 — hosts a hidden VS for live X++ debugging)
       - XppService.Mcp      (src/XppService.Mcp,       net9.0 — MCP server)
 
     Actions:
@@ -310,6 +311,7 @@ switch ($Action) {
             'src/XppService/bin',        'src/XppService/obj',
             'src/XppService.Contracts/bin', 'src/XppService.Contracts/obj',
             'src/XppService.PingProbe/bin', 'src/XppService.PingProbe/obj',
+            'src/XppDebugBridge/bin', 'src/XppDebugBridge/obj',
             'src/XppService.Mcp/bin',    'src/XppService.Mcp/obj'
         ) | ForEach-Object {
             $p = Join-Path $repoRoot $_

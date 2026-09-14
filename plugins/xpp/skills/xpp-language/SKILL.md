@@ -444,6 +444,7 @@ The two tools are complementary, not duplicative. See
 | A custom service (SOAP/REST endpoint over X++ class methods) | `dynamics-xpp:xpp-service` |
 | A batch / long-running job (sweep, recurring process, parallel workers) | `dynamics-xpp:xpp-batch` |
 | A custom form control (board / timeline / chart / bespoke editor — a `FormTemplateControl` subclass + build class + Html/JS/CSS resources) | `dynamics-xpp:xpp-custom-control` |
+| Watching code RUN — break in a method, read the stack / locals / record buffers, step, evaluate — when reading code and data has stalled | `dynamics-xpp:xpp-debug` |
 
 The pattern skills (`dynamics-xpp:xpp-pattern-simple-list`,
 `dynamics-xpp:xpp-pattern-details-master`, etc. — kebab-case names) exist for

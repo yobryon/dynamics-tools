@@ -45,6 +45,8 @@ string echo;
 string? rebuildModel = null;
 bool statusOnly = false;
 bool shutdownMode = false;
+bool debugSmoke = false;
+string debugTarget = "batch";
 
 // Exit code for "there is no service listening". Distinct from 1 (a real
 // failure) so the dt CLI can say "service not running" -- an ordinary,
@@ -81,6 +83,17 @@ else if (args.Length > 0 && args[0] == "--shutdown")
 {
     shutdownMode = true;
     pipeName = args.Length > 1 ? args[1] : "xpp-service-v2";
+    echo = string.Empty;
+}
+else if (args.Length > 0 && args[0] == "--debug-smoke")
+{
+    // --debug-smoke [target] [pipe] : end-to-end exercise of the live X++
+    // debugger through the service: attach, break in the every-minute
+    // MinActiveRowVersionUpdateBatchJob.run (batch) or in the given
+    // class.method, wait for a hit, eval, step, continue, detach.
+    debugSmoke = true;
+    debugTarget = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "batch";
+    pipeName = args.Length > 2 ? args[2] : "xpp-service-v2";
     echo = string.Empty;
 }
 else if (args.Length > 0 && args[0] == "--dump")
@@ -348,6 +361,45 @@ try
             Console.WriteLine(pr.PreviewJson.Length > 4000 ? pr.PreviewJson[..4000] + " ...[truncated]" : pr.PreviewJson);
             Console.WriteLine("PASS: patch dry-run completed (no write performed)");
         }
+        return 0;
+    }
+
+    // --- Debug smoke: the live X++ debugger, end to end through the service.
+    if (debugSmoke)
+    {
+        var dsw = System.Diagnostics.Stopwatch.StartNew();
+        var st0 = await client.DebugStatusAsync(new DebugEmpty());
+        Console.WriteLine($"status: attached={st0.Attached} elevated={st0.Elevated} bridgeRunning={st0.BridgeRunning}");
+        var at = await client.DebugAttachAsync(new DebugAttachRequest { Target = debugTarget, MaxPauseSeconds = 120, ClientId = "ping-probe" }, deadline: DateTime.UtcNow.AddMinutes(5));
+        Console.WriteLine($"attached: {at.ProcessName} pid {at.Pid} via {at.Engine} in {at.ElapsedMs}ms ({dsw.Elapsed.TotalSeconds:N1}s total)");
+        try
+        {
+            var bp = await client.DebugSetBreakpointAsync(new DebugSetBreakpointRequest { AxType = "AxClass", Name = "MinActiveRowVersionUpdateBatchJob", Method = "run", Offset = 2 }, deadline: DateTime.UtcNow.AddMinutes(3));
+            Console.WriteLine($"breakpoint: bound={bp.Bound} line={bp.BoundLine} '{bp.SourceLine}' {bp.Note}");
+            var hit = await client.DebugWaitAsync(new DebugWaitRequest { TimeoutSec = 130, Watch = { "this", "sqlStatement" } }, deadline: DateTime.UtcNow.AddMinutes(4));
+            Console.WriteLine($"wait: hit={hit.Hit} timedOut={hit.TimedOut} paused={hit.Paused} at {hit.Location?.File}:{hit.Location?.Line} '{hit.Location?.SourceLine}'");
+            if (hit.Hit)
+            {
+                foreach (var f in hit.Stack.Take(4)) Console.WriteLine($"   #{f.Index} {f.Function} [{f.File}:{f.Line}]");
+                var ev = await client.DebugEvalAsync(new DebugEvalRequest { Expression = "this", Expand = true });
+                Console.WriteLine($"eval this: valid={ev.Valid} type={ev.Type} members={ev.Members.Count}");
+                var s1 = await client.DebugStepAsync(new DebugStepRequest { Kind = "over", Watch = { "sqlStatement" } });
+                Console.WriteLine($"step: line {s1.Location?.Line} '{s1.Location?.SourceLine}' sqlStatement={(s1.Watches.Count > 0 ? s1.Watches[0].Value.Length + " chars" : "?")}");
+                var co = await client.DebugContinueAsync(new DebugEmpty());
+                Console.WriteLine($"continue: resumed={co.Resumed}");
+            }
+            else
+            {
+                Console.Error.WriteLine("FAIL: no breakpoint hit within the wait window");
+                return 1;
+            }
+        }
+        finally
+        {
+            var de = await client.DebugDetachAsync(new DebugEmpty(), deadline: DateTime.UtcNow.AddMinutes(2));
+            Console.WriteLine($"detached: wasAttached={de.WasAttached} resumedBeforeDetach={de.ResumedBeforeDetach}");
+        }
+        Console.WriteLine($"PASS: debug smoke completed in {dsw.Elapsed.TotalSeconds:N1}s");
         return 0;
     }
 

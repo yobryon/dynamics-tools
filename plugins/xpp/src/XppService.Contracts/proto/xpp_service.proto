@@ -36,6 +36,26 @@ service XppService {
   // stop is accepted and ignored.
   rpc RequestShutdown(ShutdownRequest) returns (ShutdownResponse);
 
+  // -------------------------------------------------------------------------
+  // Live X++ debugging. The service hosts a hidden Visual Studio (via its
+  // automation model) and drives VS's own managed debugger against the AOS
+  // worker or the batch host. One debug session per box; the target is only
+  // ever paused inside a bounded window (see DebugStatusResponse.max_pause_seconds).
+  // -------------------------------------------------------------------------
+
+  rpc DebugAttach(DebugAttachRequest) returns (DebugAttachResponse);
+  rpc DebugDetach(DebugEmpty) returns (DebugDetachResponse);
+  rpc DebugSetBreakpoint(DebugSetBreakpointRequest) returns (DebugBreakpoint);
+  rpc DebugListBreakpoints(DebugEmpty) returns (DebugBreakpointList);
+  rpc DebugClearBreakpoints(DebugEmpty) returns (DebugClearBreakpointsResponse);
+  // Block until a breakpoint hits or the timeout passes. On a hit the target
+  // stays PAUSED until DebugContinue / DebugStep / DebugDetach (or the watchdog).
+  rpc DebugWait(DebugWaitRequest) returns (DebugCapture);
+  rpc DebugContinue(DebugEmpty) returns (DebugContinueResponse);
+  rpc DebugStep(DebugStepRequest) returns (DebugCapture);
+  rpc DebugEval(DebugEvalRequest) returns (DebugEvalResponse);
+  rpc DebugStatus(DebugEmpty) returns (DebugStatusResponse);
+
   // Enumerate every model the bridge can see, with metadata + the
   // is_binary flag set on modules visible only through the runtime
   // (compiled-DLL) provider. Cache-first: served from the indexed
@@ -1029,4 +1049,163 @@ message EvictObjectRequest {
 
 message EvictObjectResponse {
   bool evicted = 1;
+}
+
+// =============================================================================
+// Debug messages
+// =============================================================================
+
+message DebugEmpty {}
+
+message DebugAttachRequest {
+  // "aos" (the AOSService w3wp worker), "batch" (Batch.exe), or a pid.
+  string target = 1;
+  // Watchdog budget: a hit that stays paused longer than this is resumed
+  // automatically so the AOS is never left frozen. 0 = keep the current value.
+  int32 max_pause_seconds = 2;
+  // Opaque identifier of the calling session, reported by DebugStatus so a
+  // second session can see who holds the (single) debug session.
+  string client_id = 3;
+}
+
+message DebugAttachResponse {
+  bool attached = 1;
+  string target = 2;
+  int32 pid = 3;
+  string process_name = 4;
+  string engine = 5;
+  int64 elapsed_ms = 6;
+}
+
+message DebugDetachResponse {
+  bool was_attached = 1;
+  string target = 2;
+  int32 pid = 3;
+  bool resumed_before_detach = 4;
+}
+
+message DebugSetBreakpointRequest {
+  string ax_type = 1;
+  string name = 2;
+  string method = 3;
+  // Optional model filter when the same name exists in several models.
+  string model = 4;
+  // Lines below the method's declaration line to place the breakpoint on
+  // (default 1 = the opening brace / first statement; VS moves it to the
+  // nearest statement anyway).
+  int32 offset = 5;
+  // Optional X++ condition, e.g. "salesLine.SalesId == 'SO-000123'".
+  string condition = 6;
+}
+
+message DebugBreakpoint {
+  int32 id = 1;
+  string ax_type = 2;
+  string name = 3;
+  string method = 4;
+  string file = 5;
+  int32 requested_line = 6;
+  bool bound = 7;
+  int32 bound_line = 8;
+  string source_line = 9;
+  string condition = 10;
+  string note = 11;
+}
+
+message DebugBreakpointList {
+  repeated DebugBreakpoint breakpoints = 1;
+}
+
+message DebugClearBreakpointsResponse {
+  int32 cleared = 1;
+}
+
+message DebugWaitRequest {
+  int32 timeout_sec = 1;
+  // Expressions evaluated at the hit, in the hit frame.
+  repeated string watch = 2;
+}
+
+message DebugStepRequest {
+  // into | over | out
+  string kind = 1;
+  repeated string watch = 2;
+}
+
+message DebugFrame {
+  int32 index = 1;
+  string function = 2;
+  string language = 3;
+  bool xpp = 4;
+  // "<Model>\AxClass_<Name>.xpp" (relative to <packages>\bin\XppSource)
+  string file = 5;
+  int32 line = 6;
+  string source_line = 7;
+}
+
+message DebugValue {
+  string name = 1;
+  string type = 2;
+  string value = 3;
+  bool valid = 4;
+  string error = 5;
+}
+
+message DebugHit {
+  string file = 1;
+  int32 line = 2;
+  string function = 3;
+}
+
+message DebugCapture {
+  bool hit = 1;
+  bool timed_out = 2;
+  bool paused = 3;
+  int32 thread_id = 4;
+  string thread_name = 5;
+  DebugHit breakpoint = 6;
+  DebugFrame location = 7;
+  DebugValue this = 8;
+  repeated DebugValue arguments = 9;
+  repeated DebugValue locals = 10;
+  repeated DebugValue watches = 11;
+  repeated DebugFrame stack = 12;
+  string note = 13;
+  bool auto_resumed = 14;
+  int32 max_pause_seconds = 15;
+}
+
+message DebugContinueResponse {
+  bool resumed = 1;
+  bool was_paused = 2;
+}
+
+message DebugEvalRequest {
+  string expression = 1;
+  // Also return the value's data members (one level).
+  bool expand = 2;
+}
+
+message DebugEvalResponse {
+  string expression = 1;
+  bool valid = 2;
+  string type = 3;
+  string value = 4;
+  repeated DebugValue members = 5;
+}
+
+message DebugStatusResponse {
+  bool attached = 1;
+  string target = 2;
+  int32 pid = 3;
+  string process_name = 4;
+  string mode = 5;
+  bool paused = 6;
+  int32 paused_seconds = 7;
+  int32 max_pause_seconds = 8;
+  int32 breakpoints = 9;
+  bool elevated = 10;
+  string client_id = 11;
+  bool auto_resumed = 12;
+  bool bridge_running = 13;
 }

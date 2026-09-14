@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      The debug bridge hosts a hidden Visual Studio through its COM automation
+      model (DTE) and drives VS's own managed debugger against the AOS worker
+      (w3wp) or the batch host. It is a net48 process for the same reason the
+      metadata bridge is: the VS interop surface is COM/STA and behaves best
+      from .NET Framework, and it keeps a heavyweight, stateful dependency out
+      of the long-running service.
+
+      Spawned by XppService on the first debug RPC; JSON-RPC over stdio, one
+      request per line, exactly like XppMetadataBridge. The Rpc plumbing is
+      linked from that project rather than duplicated.
+    -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>XppDebugBridge</AssemblyName>
+    <RootNamespace>XppDebugBridge</RootNamespace>
+    <Nullable>annotations</Nullable>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <UseWindowsForms>false</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!--
+    Typed VS automation interop (EnvDTE / EnvDTE80 / EnvDTE90a all live in
+    Microsoft.VisualStudio.Interop.dll in VS 2022). Referenced straight from
+    the installed Visual Studio rather than NuGet: dev boxes often have no
+    nuget.org access, and Visual Studio is a hard requirement of this
+    feature anyway (it IS the debugger). The assembly is not a primary
+    interop assembly, so its types cannot be embedded; it is copied next to
+    the exe at build time instead (from the box's own VS install).
+  -->
+  <PropertyGroup>
+    <_VsRoot Condition="'$(ProgramW6432)' != ''">$(ProgramW6432)\Microsoft Visual Studio\2022</_VsRoot>
+    <_VsRoot Condition="'$(_VsRoot)' == ''">$(ProgramFiles)\Microsoft Visual Studio\2022</_VsRoot>
+    <_VsRoot Condition="'$(_VsRoot)' == ''">C:\Program Files\Microsoft Visual Studio\2022</_VsRoot>
+    <VsInteropPath Condition="'$(VsInteropPath)' == '' and Exists('$(_VsRoot)\Enterprise\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll')">$(_VsRoot)\Enterprise\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll</VsInteropPath>
+    <VsInteropPath Condition="'$(VsInteropPath)' == '' and Exists('$(_VsRoot)\Professional\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll')">$(_VsRoot)\Professional\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll</VsInteropPath>
+    <VsInteropPath Condition="'$(VsInteropPath)' == '' and Exists('$(_VsRoot)\Community\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll')">$(_VsRoot)\Community\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll</VsInteropPath>
+    <VsInteropPath Condition="'$(VsInteropPath)' == '' and Exists('$(_VsRoot)\BuildTools\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll')">$(_VsRoot)\BuildTools\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll</VsInteropPath>
+    <VsInteropPath Condition="'$(VsInteropPath)' == '' and Exists('$(_VsRoot)\Preview\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll')">$(_VsRoot)\Preview\Common7\IDE\PublicAssemblies\Microsoft.VisualStudio.Interop.dll</VsInteropPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.VisualStudio.Interop">
+      <HintPath>$(VsInteropPath)</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="EnsureVsInterop" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(VsInteropPath)')">
+    <Error Text="Microsoft.VisualStudio.Interop.dll not found (looked under Visual Studio 2022 PublicAssemblies). Visual Studio 2022 with the D365 tools is required to build and run the X++ debug bridge. Override with -p:VsInteropPath=&lt;path&gt;." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="System.Management" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- JSON-RPC plumbing shared with the metadata bridge (single source). -->
+    <Compile Include="..\XppMetadataBridge\Rpc\IRpcHandler.cs" Link="Rpc\IRpcHandler.cs" />
+    <Compile Include="..\XppMetadataBridge\Rpc\JsonRpcTypes.cs" Link="Rpc\JsonRpcTypes.cs" />
+    <Compile Include="..\XppMetadataBridge\Rpc\JsonRpcServer.cs" Link="Rpc\JsonRpcServer.cs" />
+  </ItemGroup>
+
+</Project>

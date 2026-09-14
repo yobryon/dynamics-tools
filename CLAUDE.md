@@ -57,9 +57,15 @@ All .NET; bridge is net48, everything else net9.
   the single contract source of truth. The C# server and clients
   generate from these via `Grpc.Tools`.
 - **`plugins/xpp/src/XppService.PingProbe/`** — .NET 9 dev probe.
+- **`plugins/xpp/src/XppDebugBridge/`** — .NET Framework 4.8 console
+  app that hosts a hidden Visual Studio (DTE automation, typed interop
+  on an STA thread) and drives VS's managed debugger against w3wp /
+  Batch.exe for the `xpp_debug_*` tools. One per box, spawned by the
+  service on the first debug RPC. Design + hard-won rules in
+  `plugins/xpp/docs/live-debugging-design.md`.
   Small client used to smoke-test the gRPC pipe end-to-end.
 
-Solution file `plugins/xpp/dynamics-xpp.sln` references all five projects.
+Solution file `plugins/xpp/dynamics-xpp.sln` references all seven projects.
 
 ### Single source of truth: skills
 

@@ -7,6 +7,26 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
+## [Unreleased]
+
+### Added
+
+- **Live X++ debugging.** New `xpp_debug_*` tools attach Visual Studio's
+  managed debugger — hosted invisibly by the plugin service — to the AOS worker
+  (`aos`) or the batch host (`batch`), set breakpoints by *method*
+  (`AxClass PriceDisc findPrice`, with an optional X++ condition), wait for a
+  hit, and return the X++ call stack with file:line and source text, `this`,
+  arguments, locals and watch expressions; then evaluate expressions, step
+  over/into/out, continue, and detach. The service generates the `.xpp`
+  source the debugger binds against straight from the AOT XML, so any class,
+  table, view, entity, query or map can be debugged whether or not anyone has
+  opened it in VS. Guard rails: one session per box, breakpoints deleted on
+  detach, and a watchdog that resumes a hit left paused too long so the AOS is
+  never left frozen. Requires Claude Code to run elevated (the F&O processes
+  run as NETWORK SERVICE). Forms and extension elements can't take breakpoints
+  yet — break in a class/table method on the same path. See the new
+  `dynamics-xpp:xpp-debug` skill.
+
 ## [0.2.0] - 2026-09-01
 
 The headline is that **the plugin now keeps itself current**. Before this

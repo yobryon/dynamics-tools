@@ -47,11 +47,13 @@ public sealed partial class PingGrpcService : XppService.XppServiceBase
     private readonly IEmbeddingProvider _embeddings;
     private readonly EmbeddingOptions _embeddingOptions;
     private readonly IHostApplicationLifetime _lifetime;
+    private readonly DebugBridgeHost _debugBridge;
     private readonly ILogger<PingGrpcService> _logger;
 
-    public PingGrpcService(BridgePool bridgePool, BridgeClient bridgeClient, BridgeOptions bridgeOptions, IndexDatabase db, Indexer indexer, IndexLifecycle lifecycle, IEmbeddingProvider embeddings, EmbeddingOptions embeddingOptions, IHostApplicationLifetime lifetime, ILogger<PingGrpcService> logger)
+    public PingGrpcService(BridgePool bridgePool, BridgeClient bridgeClient, BridgeOptions bridgeOptions, IndexDatabase db, Indexer indexer, IndexLifecycle lifecycle, IEmbeddingProvider embeddings, EmbeddingOptions embeddingOptions, IHostApplicationLifetime lifetime, DebugBridgeHost debugBridge, ILogger<PingGrpcService> logger)
     {
         _lifetime = lifetime;
+        _debugBridge = debugBridge;
         _bridgePool = bridgePool;
         _bridgeClient = bridgeClient;
         _bridgeOptions = bridgeOptions;

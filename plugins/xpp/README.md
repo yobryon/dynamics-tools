@@ -42,7 +42,7 @@ plugin lets Claude work alongside you in the same codebase:
   the changes are already in your project — no manual "add to
   project" step.
 
-The skill fleet is **37 skills today**:
+The skill fleet is **38 skills today**:
 
 | Family | Skills |
 |---|---|
@@ -50,6 +50,7 @@ The skill fleet is **37 skills today**:
 | Anchor + language | `dynamics-xpp:xpp-language`, `dynamics-xpp:xpp-data` |
 | Per-AOT-type | `dynamics-xpp:xpp-class`, `dynamics-xpp:xpp-table`, `dynamics-xpp:xpp-form`, `dynamics-xpp:xpp-edt`, `dynamics-xpp:xpp-enum`, `dynamics-xpp:xpp-labelfile`, `dynamics-xpp:xpp-extension`, `dynamics-xpp:xpp-query`, `dynamics-xpp:xpp-view`, `dynamics-xpp:xpp-dataentityview`, `dynamics-xpp:xpp-menu`, `dynamics-xpp:xpp-menuitem`, `dynamics-xpp:xpp-security`, `dynamics-xpp:xpp-service`, `dynamics-xpp:xpp-tile`, `dynamics-xpp:xpp-resource` |
 | Authoring topics | `dynamics-xpp:xpp-custom-control`, `dynamics-xpp:xpp-batch`, `dynamics-xpp:xpp-navigation` |
+| Live debugging | `dynamics-xpp:xpp-debug` |
 | Per-form-pattern (10) | `dynamics-xpp:xpp-pattern-simple-list`, `dynamics-xpp:xpp-pattern-simple-list-details`, `dynamics-xpp:xpp-pattern-details-master`, `dynamics-xpp:xpp-pattern-details-transaction`, `dynamics-xpp:xpp-pattern-list-page`, `dynamics-xpp:xpp-pattern-task`, `dynamics-xpp:xpp-pattern-task-parent-child`, `dynamics-xpp:xpp-pattern-wizard`, `dynamics-xpp:xpp-pattern-table-of-contents`, `dynamics-xpp:xpp-pattern-workspace-operational` |
 | Sub-patterns catalog | `dynamics-xpp:xpp-form-subpatterns` |
 | Wireframing | `dynamics-xpp:xpp-wireframe` |
@@ -296,6 +297,19 @@ stale session or running `dt update`.
 Maintainer-facing actions — building one project, running a
 component in the foreground, smoke tests — stay in
 `tools/dev.ps1`.
+
+## Live debugging
+
+When code and data alone can't explain a behaviour, Claude can attach a
+debugger to the running AOS (or the batch host) on your dev box: break
+in a method, read the X++ call stack, locals and record buffers, step,
+evaluate expressions, and release. It hosts Visual Studio invisibly and
+drives VS's own debugger, so it needs the same thing VS does — **Claude
+Code started as administrator** (the F&O processes run as NETWORK
+SERVICE). A paused AOS pauses every session on the box, so hits are
+budgeted: a breakpoint left paused too long is resumed automatically,
+and detaching clears every breakpoint. Ask Claude to "debug why X" and it
+loads `dynamics-xpp:xpp-debug`.
 
 ## When the write tools refuse
 
