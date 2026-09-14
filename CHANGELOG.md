@@ -7,7 +7,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-14
 
 ### Added
 
@@ -117,5 +117,6 @@ last week's code indefinitely, with nothing to tell you. There is also a new
 Initial public release: the `dynamics-xpp` plugin for D365 F&O X++ development —
 the skill fleet plus the MCP server's read and write surfaces.
 
-[0.2.0]: https://github.com/yobryon/dynamics-tools/compare/102b587...main
+[0.3.0]: https://github.com/yobryon/dynamics-tools/compare/4679d76...main
+[0.2.0]: https://github.com/yobryon/dynamics-tools/compare/102b587...4679d76
 [0.1.0]: https://github.com/yobryon/dynamics-tools/commit/b8d2aed
