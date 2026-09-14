@@ -7,7 +7,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
-## [Unreleased]
+## [0.3.1] - 2026-09-14
 
 ### Fixed
 
