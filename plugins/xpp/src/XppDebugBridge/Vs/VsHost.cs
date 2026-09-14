@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using EnvDTE;
 using EnvDTE80;
 
@@ -29,6 +28,10 @@ namespace XppDebugBridge.Vs
     ///  - Load the D365 package (by opening an .xpp document) BEFORE the
     ///    debugger is asked to bind anything; without it no X++ breakpoint
     ///    binds.
+    ///  - Killing this devenv is the guaranteed release: it detaches the
+    ///    debugger and the target runs on. It is what <see cref="Kill"/> does
+    ///    when automation stops answering, and it never touches the user's own
+    ///    Visual Studio because we only ever kill the pid we started.
     /// </summary>
     internal sealed class VsHost : IDisposable
     {
@@ -37,7 +40,7 @@ namespace XppDebugBridge.Vs
         private System.Diagnostics.Process? _process;
 
         public DTE2? Dte { get; private set; }
-        public int Pid => _process?.Id ?? 0;
+        public int Pid => _process is { HasExited: false } ? _process.Id : 0;
         public bool IsAlive => _process is { HasExited: false } && Dte != null;
 
         public VsHost(StaWorker sta, Action<string> log)
@@ -50,6 +53,7 @@ namespace XppDebugBridge.Vs
         public void EnsureStarted()
         {
             if (IsAlive) return;
+            Dte = null; _process = null;
             var exe = DevenvLocator.Find()
                 ?? throw new InvalidOperationException("Visual Studio 2022 (devenv.exe) was not found on this machine; the X++ debugger needs it.");
 
@@ -66,7 +70,7 @@ namespace XppDebugBridge.Vs
             object? dte = null;
             for (var i = 0; i < 240 && dte == null; i++)
             {
-                dte = _sta.Invoke(() => RotHelper.FindDte(_process.Id));
+                dte = _sta.Invoke(() => RotHelper.FindDte(_process.Id), 10_000, "rot-lookup");
                 if (dte == null)
                 {
                     if (_process.HasExited) throw new InvalidOperationException($"devenv exited during startup (code {_process.ExitCode})");
@@ -76,10 +80,10 @@ namespace XppDebugBridge.Vs
             if (dte == null) throw new TimeoutException("devenv never registered its automation object");
 
             Dte = (DTE2)dte;
-            _sta.Invoke(() => { Dte.UserControl = false; });
+            _sta.Invoke(() => { Dte.UserControl = false; }, 30_000, "user-control");
             // Readiness: the debugger object answers. Then settle -- attaching
             // in the first seconds after that is rejected for a long while.
-            _sta.Invoke(() => { var _ = Dte.Debugger.CurrentMode; }, 240_000);
+            _sta.Invoke(() => { var _ = Dte.Debugger.CurrentMode; }, 240_000, "debugger-ready");
             System.Threading.Thread.Sleep(6000);
             _log($"devenv {_process.Id} ready in {sw.Elapsed.TotalSeconds:N1}s");
 
@@ -101,7 +105,7 @@ namespace XppDebugBridge.Vs
                     "<UserSettings><ApplicationIdentity version=\"17.0\"/><ToolsOptions/>" +
                     "<Category name=\"Debugger\" Category=\"{EEDBF29A-5C8B-4E01-827C-263382C18CFE}\" Package=\"{C9DD4A57-47FB-11D2-83E7-00C04F9902C1}\" RegisteredName=\"Debugger\" PackageName=\"Visual Studio Debugger\">" +
                     "<PropertyValue name=\"DisableAttachSecurityWarning\">1</PropertyValue></Category></UserSettings>");
-                _sta.Invoke(() => Dte!.ExecuteCommand("Tools.ImportandExportSettings", $"/import:\"{path}\""));
+                _sta.Invoke(() => Dte!.ExecuteCommand("Tools.ImportandExportSettings", $"/import:\"{path}\""), 60_000, "import-settings");
                 System.Threading.Thread.Sleep(1500);
             }
             catch (Exception ex)
@@ -110,24 +114,57 @@ namespace XppDebugBridge.Vs
             }
         }
 
-        /// <summary>Open a document in the hidden VS. Opening any .xpp loads the D365 package.</summary>
-        public void OpenFile(string path, bool closeAfter)
+        /// <summary>
+        /// Open a document in the hidden VS. Opening any .xpp loads the D365
+        /// package. Only used while the debuggee is RUNNING: opening a document
+        /// while it is paused is the call that once wedged automation for
+        /// minutes, so breakpoints are set without opening their file.
+        /// </summary>
+        public void OpenFile(string path, bool closeAfter, int timeoutMs)
         {
             _sta.Invoke(() =>
             {
                 var w = Dte!.ItemOperations.OpenFile(path);
                 if (closeAfter && w != null) { try { w.Close(vsSaveChanges.vsSaveChangesNo); } catch { } }
-            }, 600_000);
+            }, timeoutMs, "open-file");
+        }
+
+        /// <summary>
+        /// The escape hatch: terminate OUR devenv. Killing the debugger process
+        /// detaches it and the target resumes immediately; nothing here needs
+        /// the automation model, so it works precisely when automation does not.
+        /// A thread blocked inside a COM call into that VS gets an RPC failure
+        /// and unwinds, which also clears the STA worker's wedge.
+        /// </summary>
+        public bool Kill(string reason)
+        {
+            var p = _process;
+            Dte = null;
+            if (p == null) return false;
+            var killed = false;
+            try
+            {
+                if (!p.HasExited)
+                {
+                    _log($"killing hidden devenv {p.Id}: {reason}");
+                    p.Kill();
+                    p.WaitForExit(10_000);
+                    killed = true;
+                }
+            }
+            catch (Exception ex) { _log($"kill devenv failed: {ex.Message}"); }
+            finally { try { p.Dispose(); } catch { } _process = null; }
+            return killed;
         }
 
         public void Dispose()
         {
             try
             {
-                if (Dte != null)
+                if (Dte != null && !_sta.IsWedged)
                 {
-                    try { _sta.Invoke(() => { try { Dte.Debugger.DetachAll(); } catch { } }, 30_000); } catch { }
-                    try { _sta.Invoke(() => Dte.Quit(), 15_000); } catch { }
+                    try { _sta.Invoke(() => { try { Dte.Debugger.DetachAll(); } catch { } }, 20_000, "detach-all"); } catch { }
+                    try { _sta.Invoke(() => Dte.Quit(), 10_000, "quit"); } catch { }
                 }
             }
             finally
@@ -136,7 +173,7 @@ namespace XppDebugBridge.Vs
                 if (_process != null)
                 {
                     try { if (!_process.WaitForExit(5000)) _process.Kill(); } catch { }
-                    _process.Dispose();
+                    try { _process.Dispose(); } catch { }
                     _process = null;
                 }
             }

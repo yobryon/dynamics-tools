@@ -12,11 +12,8 @@ namespace XppDebugBridge.Handlers
     /// <summary>
     /// JSON-RPC surface of the debug bridge. Thin: validate params, call the
     /// session, return a plain object. All the debugger semantics live in
-    /// <see cref="DebugSession"/>.
-    ///
-    /// Every handler runs the session call on a thread-pool thread so the
-    /// JSON-RPC read loop stays responsive; the session serializes VS access
-    /// internally.
+    /// <see cref="DebugSession"/>. Handlers run concurrently (see
+    /// ConcurrentJsonRpcServer); the session serializes what must be.
     /// </summary>
     internal static class Elevation
     {
@@ -75,7 +72,7 @@ namespace XppDebugBridge.Handlers
     {
         public DetachHandler(DebugSession s) : base(s) { }
         public override string Method => "debug.detach";
-        protected override object? Handle(JObject p) => Session.Detach();
+        protected override object? Handle(JObject p) => Session.Detach(Params.OptionalBool(p, "force", false));
     }
 
     internal sealed class SetBreakpointHandler : SessionHandler

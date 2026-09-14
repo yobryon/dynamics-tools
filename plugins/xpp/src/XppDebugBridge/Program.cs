@@ -57,7 +57,7 @@ namespace XppDebugBridge
                 new StatusHandler(session),
             };
 
-            var server = new JsonRpcServer(Console.In, Console.Out, handlers);
+            var server = new ConcurrentJsonRpcServer(Console.In, Console.Out, handlers);
             using var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
             try

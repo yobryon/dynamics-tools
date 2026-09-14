@@ -311,6 +311,18 @@ budgeted: a breakpoint left paused too long is resumed automatically,
 and detaching clears every breakpoint. Ask Claude to "debug why X" and it
 loads `dynamics-xpp:xpp-debug`.
 
+If the debugger ever stops answering while the AOS is paused, Claude has
+a forced detach that releases it within seconds. In the worst case that
+means killing the hidden Visual Studio, which also ends the process it
+was debugging — IIS starts a fresh AOS worker right away (open client
+sessions are dropped), and the batch service restarts its host after
+about 30 seconds. Claude tells you when that happened.
+
+The debugger's helper (`XppDebugBridge`) is built with the rest of the
+plugin. If you ever build the plugin by hand, use `dotnet build`, not
+msbuild or Visual Studio: stock D365 dev boxes lack the .NET Framework
+4.8 targeting pack that msbuild wants, and the SDK supplies it.
+
 ## When the write tools refuse
 
 A few guardrails the plugin enforces because doing the wrong thing

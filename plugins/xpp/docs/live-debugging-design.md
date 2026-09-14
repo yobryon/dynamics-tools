@@ -98,8 +98,17 @@ Each of these cost at least one failed run.
 8. **`Attach2` returns before the session exists.** `DTE.Debugger` can read
    null for a few seconds; wait for `DebuggedProcesses` to be non-empty.
 9. **Recovery**: an orphaned attached VS is recoverable — reconnect via the
-   ROT and `DetachAll`. Never kill an attached devenv; it can take the
-   debuggee with it.
+   ROT and `DetachAll`. Killing an attached devenv **does** take the debuggee
+   with it (measured); it is the last resort, and every path that does it
+   says so.
+10. **Never open a document in VS while the debuggee is paused**, and never
+    let one automation call hold the session lock for minutes. See "The
+    wedge" below.
+11. **Build with `dotnet build`, not msbuild/VS**: stock D365 boxes lack the
+    .NET Framework 4.8 targeting pack; the SDK supplies it.
+12. **The installed plugin runs from Claude Code's cache copy**, not the
+    marketplace clone `dt` builds. Anything the service spawns must be in the
+    MCP project's build-only `ProjectReference`s or it is never built there.
 
 ## Safety posture
 
@@ -109,6 +118,37 @@ Each of these cost at least one failed run.
   exit path (service shutdown closes stdin) does the same and quits its VS.
 - IIS's app-pool ping timeout for AOSService is 600 s here; short pauses are
   well inside it.
+
+### The wedge (0.3.0) and what it taught
+
+The first field use hit a full freeze: a breakpoint set *while paused* opened
+its document in VS (`ItemOperations.OpenFile`) and that call never returned
+in break mode. It held the session lock and the single STA thread; the
+JSON-RPC loop was strictly sequential so every later request -- detach
+included -- queued behind it; and the watchdog `TryEnter`ed the same lock, so
+the safety floor was behind the wedge too. The AOS sat frozen 13 minutes.
+
+Fixes, each general:
+- No document is opened while the target is paused; breakpoints bind by
+  file/line against the generated source without the file open (verified:
+  a second breakpoint while paused binds in 0.0s).
+- The debug bridge dispatches requests concurrently (`ConcurrentJsonRpcServer`);
+  the STA worker knows when a call is stuck past its deadline and fails later
+  calls fast; every automation call is bounded in seconds.
+- `Detach` takes the lock with a 2s `TryEnter`, tries a bounded graceful
+  detach, then kills the hidden VS. `force` skips the queue entirely. The
+  service has its own fallback that kills the bridge and the VS pid it
+  recorded at attach.
+- The watchdog runs lock-free on its own thread and escalates to the kill.
+
+**Measured, not assumed: killing the debugger kills the debuggee.** A .NET
+Framework process does not survive losing its VS debugger, paused *or*
+running -- `Batch.exe` was gone after every kill test. The batch service's
+recovery restarts it after 30s; IIS respawns a dead AOS worker within
+seconds but every session on it is lost. So the kill is the last resort,
+every path reports `targetTerminated` when it happens, and the skill tells
+the agent to relay the cost. The reporter's "kill the hidden devenv releases
+the AOS immediately" was IIS restarting the worker.
 
 ## Measured on this box
 

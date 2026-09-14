@@ -52,6 +52,18 @@
       <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
       <Private>false</Private>
     </ProjectReference>
+    <!--
+      XppDebugBridge is spawned by the service for the xpp_debug_* tools. It
+      has to be in this build graph for the same reason the metadata bridge
+      is: the installed plugin runs from Claude Code's cache copy, which is
+      built ONLY by this `dotnet run`. Leaving it out shipped a service that
+      could not find a bridge nobody had built (0.3.0).
+    -->
+    <ProjectReference Include="..\XppDebugBridge\XppDebugBridge.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>

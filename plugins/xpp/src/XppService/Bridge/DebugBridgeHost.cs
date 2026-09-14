@@ -34,6 +34,52 @@ public sealed class DebugBridgeHost : IAsyncDisposable
 
     public bool IsRunning => _bridge is { IsAlive: true };
 
+    /// <summary>Where the bridge exe resolves to (or where it was expected), without starting anything.</summary>
+    public (bool Available, string Path) Probe()
+    {
+        var exe = DebugBridgeExeResolver.Resolve(out _);
+        return (exe != null, exe ?? DebugBridgeExeResolver.ExpectedPath());
+    }
+
+    /// <summary>
+    /// Pid of the hidden Visual Studio the bridge reported (attach / status
+    /// responses carry it). Kept here so the service can kill it even when the
+    /// bridge itself has stopped answering. Only ever the pid the bridge
+    /// started -- never the user's own VS.
+    /// </summary>
+    public int VsPid { get; set; }
+
+    /// <summary>
+    /// The release that needs nothing to cooperate: kill the bridge's hidden
+    /// Visual Studio (killing the debugger detaches it and the target runs on),
+    /// then the bridge. Used when the bridge itself stops answering.
+    /// </summary>
+    public async Task<string> KillAsync()
+    {
+        var bridge = _bridge; _bridge = null; OwnerClientId = string.Empty;
+        var killedVs = false;
+        var vsPid = VsPid; VsPid = 0;
+        if (vsPid > 0)
+        {
+            try
+            {
+                using var vs = System.Diagnostics.Process.GetProcessById(vsPid);
+                if (string.Equals(vs.ProcessName, "devenv", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("Killing hidden devenv {Pid} (the debug bridge's VS)", vsPid);
+                    vs.Kill(true); killedVs = true;
+                }
+            }
+            catch (ArgumentException) { /* already gone */ }
+            catch (Exception ex) { _logger.LogWarning("Could not kill devenv {Pid}: {Reason}", vsPid, ex.Message); }
+        }
+        if (bridge != null)
+        {
+            try { await bridge.DisposeAsync().ConfigureAwait(false); } catch { }
+        }
+        return killedVs ? "killed-bridge" : "killed-bridge (VS already gone or unknown)";
+    }
+
     /// <summary>Issue a JSON-RPC call to the debug bridge, starting it if needed.</summary>
     public async Task<JsonNode?> InvokeAsync(string method, JsonNode? @params, CancellationToken ct)
     {
@@ -55,11 +101,18 @@ public sealed class DebugBridgeHost : IAsyncDisposable
                 _bridge = null;
             }
 
+            // One working command beats a list of misses: name the csproj in
+            // THIS tree and the build that works on a stock D365 box (dotnet
+            // build; msbuild/VS lack the v4.8 targeting pack there). Normally
+            // `dotnet run` of the MCP builds the bridge, so reaching this means
+            // a hand-assembled layout or a stale launch.
             var exe = DebugBridgeExeResolver.Resolve(out var trace)
                 ?? throw new InvalidOperationException(
-                    "XppDebugBridge.exe could not be located. Searched:\n" +
-                    string.Join("\n", trace.Select(p => "  - " + p)) +
-                    "\nBuild the solution (dt setup) or set XPP_DEBUG_BRIDGE_EXE.");
+                    "XppDebugBridge.exe is not built in this plugin tree. Build it with:\n" +
+                    $"  dotnet build \"{DebugBridgeExeResolver.ExpectedCsproj()}\" -c Release\n" +
+                    "(use dotnet build, not msbuild: stock D365 dev boxes lack the .NET Framework 4.8 targeting pack that msbuild needs; the SDK supplies it). " +
+                    "It is normally built automatically when the MCP server starts; if it is missing right after an update, restart the session. " +
+                    "Searched: " + string.Join("; ", trace.Take(4)) + (trace.Count > 4 ? $" (+{trace.Count - 4} more)" : ""));
 
             var options = new BridgeOptions
             {
@@ -141,5 +194,29 @@ public static class DebugBridgeExeResolver
 
         searchTrace = trace;
         return null;
+    }
+
+    /// <summary>The source tree this service was built from (walk up to the dir holding src\).</summary>
+    private static string? TreeRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            if (Directory.Exists(Path.Combine(dir.FullName, "src", "XppDebugBridge"))) return dir.FullName;
+            dir = dir.Parent;
+        }
+        return null;
+    }
+
+    public static string ExpectedCsproj()
+    {
+        var root = TreeRoot();
+        return root == null ? @"src\XppDebugBridge\XppDebugBridge.csproj" : Path.Combine(root, "src", "XppDebugBridge", "XppDebugBridge.csproj");
+    }
+
+    public static string ExpectedPath()
+    {
+        var root = TreeRoot();
+        return root == null ? @"src\XppDebugBridge\bin\Release\net48\XppDebugBridge.exe" : Path.Combine(root, "src", "XppDebugBridge", "bin", "Release", "net48", "XppDebugBridge.exe");
     }
 }

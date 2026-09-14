@@ -46,13 +46,40 @@ public sealed class DebugTools
 
     [McpServerTool(Name = "xpp_debug_detach"), Description(
         "Detach the debugger: resumes the target if paused, deletes every breakpoint, detaches. ALWAYS call this when you are " +
-        "done debugging - an attached debugger with live breakpoints keeps pausing the AOS for whoever hits them.")]
-    public async Task<string> Detach(CancellationToken ct = default)
+        "done debugging - an attached debugger with live breakpoints keeps pausing the AOS for whoever hits them. If Visual " +
+        "Studio automation does not answer, it escalates on its own to killing the hidden VS. force=true is the escape hatch " +
+        "when calls report the bridge/automation not responding or DeadlineExceeded while the target is paused: it takes a " +
+        "separate short path that never waits behind a stuck call, gives automation one 5s chance to detach cleanly, then kills " +
+        "the hidden VS. KNOW THE COST: a kill also terminates the target process (a .NET Framework debuggee does not survive " +
+        "losing its debugger) - IIS restarts the AOS worker within seconds but every client session on it is dropped; the batch " +
+        "service restarts Batch.exe after ~30s. targetTerminated/note in the result say when that happened. Never touches the " +
+        "user's own Visual Studio.")]
+    public async Task<string> Detach(
+        [Description("true = release the target immediately by terminating the hidden Visual Studio (and the bridge if it is unresponsive). Never touches the user's own VS.")] bool force = false,
+        CancellationToken ct = default)
     {
         try
         {
-            var rsp = await _conn.Client.DebugDetachAsync(new DebugEmpty(), deadline: DateTime.UtcNow.AddMinutes(2), cancellationToken: ct);
-            return JsonSerializer.Serialize(new { detached = true, wasAttached = rsp.WasAttached, target = rsp.Target, rsp.Pid, resumedBeforeDetach = rsp.ResumedBeforeDetach });
+            if (force)
+            {
+                var f = await _conn.Client.DebugForceDetachAsync(new DebugEmpty(), deadline: DateTime.UtcNow.AddSeconds(45), cancellationToken: ct);
+                return JsonSerializer.Serialize(new { detached = true, forced = true, wasAttached = f.WasAttached, target = f.Target, f.Pid, how = f.How, targetTerminated = f.TargetTerminated,
+                    note = string.IsNullOrEmpty(f.Note) ? "detached cleanly; the target kept running. The next xpp_debug_attach starts a fresh hidden VS." : f.Note });
+            }
+            var rsp = await _conn.Client.DebugDetachAsync(new DebugEmpty(), deadline: DateTime.UtcNow.AddSeconds(60), cancellationToken: ct);
+            return JsonSerializer.Serialize(new { detached = true, wasAttached = rsp.WasAttached, target = rsp.Target, rsp.Pid, resumedBeforeDetach = rsp.ResumedBeforeDetach, how = rsp.How, targetTerminated = rsp.TargetTerminated, note = string.IsNullOrEmpty(rsp.Note) ? null : rsp.Note });
+        }
+        catch (RpcException ex) when (!force)
+        {
+            // The graceful path could not even be reached (bridge stuck): do
+            // what the caller needs -- release the target -- rather than hand
+            // back an error while the AOS is frozen.
+            try
+            {
+                var f = await _conn.Client.DebugForceDetachAsync(new DebugEmpty(), deadline: DateTime.UtcNow.AddSeconds(45), cancellationToken: ct);
+                return JsonSerializer.Serialize(new { detached = true, forced = true, escalatedFrom = ex.StatusCode.ToString(), wasAttached = f.WasAttached, how = f.How, targetTerminated = f.TargetTerminated, note = string.IsNullOrEmpty(f.Note) ? null : f.Note });
+            }
+            catch (RpcException ex2) { return ToolError.From("xpp_debug_detach", ex2); }
         }
         catch (RpcException ex) { return ToolError.From("xpp_debug_detach", ex); }
     }
@@ -173,7 +200,9 @@ public sealed class DebugTools
         {
             var s = await _conn.Client.DebugStatusAsync(new DebugEmpty(), deadline: DateTime.UtcNow.AddMinutes(1), cancellationToken: ct);
             return JsonSerializer.Serialize(new { s.Attached, target = s.Target, s.Pid, processName = s.ProcessName, mode = s.Mode, s.Paused, pausedSeconds = s.PausedSeconds, maxPauseSeconds = s.MaxPauseSeconds,
-                s.Breakpoints, s.Elevated, ownerClientId = s.ClientId, isMine = s.ClientId == ClientId, autoResumed = s.AutoResumed, bridgeRunning = s.BridgeRunning });
+                s.Breakpoints, s.Elevated, ownerClientId = s.ClientId, isMine = s.ClientId == ClientId, bridgeRunning = s.BridgeRunning,
+                bridgeAvailable = s.BridgeAvailable, bridgeExe = s.BridgeExe, automationWedged = s.AutomationWedged, watchdog = string.IsNullOrEmpty(s.Watchdog) ? null : s.Watchdog,
+                hint = !s.BridgeAvailable ? "the debug bridge is not built in this plugin tree; see bridgeExe for where it is expected (it is normally built when the MCP starts)" : s.AutomationWedged ? "automation is not responding: xpp_debug_detach force=true releases the target" : null });
         }
         catch (RpcException ex) { return ToolError.From("xpp_debug_status", ex); }
     }
@@ -199,6 +228,6 @@ public sealed class DebugTools
         @this = c.This == null ? null : new { type = c.This.Type, value = c.This.Value },
         arguments = c.Arguments.Select(V), locals = c.Locals.Select(V), watches = c.Watches.Select(V),
         stack = c.Stack.Select(F),
-        autoResumed = c.AutoResumed, maxPauseSeconds = c.MaxPauseSeconds, note = string.IsNullOrEmpty(c.Note) ? null : c.Note,
+        watchdogResumed = c.AutoResumed, maxPauseSeconds = c.MaxPauseSeconds, note = string.IsNullOrEmpty(c.Note) ? null : c.Note,
     };
 }

@@ -7,6 +7,30 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
+## [Unreleased]
+
+### Fixed
+
+- **Debug bridge never built by `dt setup` / plugin install.** The installed
+  plugin runs from Claude Code's cache copy, which is built only by the MCP
+  server's `dotnet run`; `XppDebugBridge` was missing from that build graph,
+  so every first `xpp_debug_attach` failed with "XppDebugBridge.exe is not
+  built". It is now a build-only reference of the MCP project, and the error
+  (should it ever recur) names the one `dotnet build` command that works on
+  a stock D365 box. `xpp_debug_status` reports `bridgeAvailable` up front.
+- **Bridge deadlock while paused.** Setting a breakpoint while the target
+  was paused opened its document in the hidden Visual Studio, which never
+  returned in break mode; every later call (detach included) queued behind
+  it and the AOS stayed frozen. Breakpoints now bind without opening a
+  document, the bridge serves requests concurrently, every automation call
+  is bounded, and the watchdog runs independently of the request path.
+  `xpp_debug_detach force=true` is a separate short path that never waits
+  behind a stuck call: one 5-second graceful attempt, then the hidden VS is
+  killed. Killing the debugger also terminates the target process (IIS or the
+  batch service restarts it, sessions on the AOS are lost); the result says
+  so with `targetTerminated` and a `note`, and the skill tells the agent to
+  relay the cost.
+
 ## [0.3.0] - 2026-09-14
 
 ### Added

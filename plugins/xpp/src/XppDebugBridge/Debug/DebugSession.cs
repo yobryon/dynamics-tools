@@ -17,10 +17,19 @@ namespace XppDebugBridge.Debug
     /// F&amp;O process, a set of breakpoints, and whatever the debuggee is doing
     /// right now. Every VS call goes through the STA worker.
     ///
-    /// Safety posture: a paused AOS freezes every client session on the box,
-    /// so nothing here leaves the target paused unattended -- a watchdog
-    /// resumes it after <see cref="MaxPauseSeconds"/>, breakpoints are deleted
-    /// on detach, and detach always resumes first.
+    /// Safety posture -- a paused AOS freezes every client session on the
+    /// box, so the release paths are designed to work when everything else
+    /// does not:
+    ///  - Every automation call is bounded (seconds, not minutes), and once
+    ///    one is stuck the STA worker fails the rest fast instead of queueing.
+    ///  - <see cref="Detach"/> always ends with the target running: graceful
+    ///    first, then by killing our hidden VS, which detaches instantly and
+    ///    needs no automation at all. <c>force</c> skips straight to the kill.
+    ///  - The watchdog runs on its own thread, takes no lock, and escalates to
+    ///    the kill when automation cannot resume within the pause budget. It
+    ///    once lived behind the same lock as the wedged call and never fired.
+    ///  - No document is opened in VS while the target is paused; that call
+    ///    was the original wedge. Breakpoints bind without their file open.
     /// </summary>
     internal sealed class DebugSession : IDisposable
     {
@@ -37,10 +46,10 @@ namespace XppDebugBridge.Debug
         private DateTime? _pausedSince;
         private bool _packageLoaded;
         private int _nextBpId = 1;
+        private string? _lastWatchdogAction;
 
         public TargetResolver.Target? Target { get; private set; }
         public bool Attached => Target != null && _vs.IsAlive;
-        public bool AutoResumedSinceLastReport { get; private set; }
 
         public sealed class BreakpointRecord
         {
@@ -75,7 +84,9 @@ namespace XppDebugBridge.Debug
 
                 var target = TargetResolver.Resolve(targetName);
                 var sw = Stopwatch.StartNew();
+                var wasAlive = _vs.IsAlive;
                 _vs.EnsureStarted();
+                if (!wasAlive) _packageLoaded = false;
                 EnsurePackageLoaded();
 
                 // LocalProcesses is unreliable after its first enumeration in a
@@ -85,7 +96,7 @@ namespace XppDebugBridge.Debug
                 _sta.Invoke(() =>
                 {
                     foreach (EnvDTE.Process p in Dbg.LocalProcesses) { seen++; if (p.ProcessID == target.Pid) proc = p; }
-                }, 120_000);
+                }, 120_000, "local-processes");
                 if (proc == null)
                     throw new InvalidOperationException(
                         $"Visual Studio cannot see pid {target.Pid} ({seen} processes visible). " +
@@ -99,13 +110,13 @@ namespace XppDebugBridge.Debug
                     if (!engines.Contains(EngineName))
                         throw new InvalidOperationException($"engine '{EngineName}' not offered by this VS; have: {string.Join(" | ", engines)}");
                     ((Process2)proc).Attach2(EngineName);
-                }, 240_000);
+                }, 240_000, "attach");
 
                 // Attach2 returns before the session is fully up.
                 var ready = false;
                 for (var i = 0; i < 120 && !ready; i++)
                 {
-                    ready = _sta.Invoke(() => { var n = 0; foreach (EnvDTE.Process p in Dbg.DebuggedProcesses) n++; return n > 0; });
+                    ready = _sta.Invoke(() => { var n = 0; foreach (EnvDTE.Process p in Dbg.DebuggedProcesses) n++; return n > 0; }, 30_000, "debugged-processes");
                     if (!ready) System.Threading.Thread.Sleep(500);
                 }
                 if (!ready) throw new InvalidOperationException("attach did not complete (no debugged process reported)");
@@ -126,32 +137,85 @@ namespace XppDebugBridge.Debug
             }
         }
 
-        public object Detach()
+        /// <summary>
+        /// Always ends with the target running and nothing attached. Graceful
+        /// (resume, delete breakpoints, DetachAll) when automation answers
+        /// within a few seconds; otherwise -- or when <paramref name="force"/>
+        /// -- kill our hidden VS, which detaches instantly. Deliberately does
+        /// NOT wait on the session lock: the caller is usually trying to get
+        /// out from behind whatever holds it.
+        /// </summary>
+        /// <summary>
+        /// Text every kill path attaches: killing the debugger is not free.
+        /// Measured, not assumed -- a .NET Framework debuggee does not survive
+        /// losing its VS debugger, paused or running. Its host brings it back
+        /// (IIS respawns the AOS worker within seconds; the batch service's
+        /// recovery restarts Batch.exe after ~30s), but every session on it
+        /// is gone. Still better than a box frozen for good, which is why it
+        /// remains the last resort.
+        /// </summary>
+        public static string TerminatedNote(TargetResolver.Target? t) => t?.Kind == "batch"
+            ? "the hidden Visual Studio was killed to release the debugger; Batch.exe does not survive that and the DynamicsAxBatch service restarts it (~30s). Running batch tasks were interrupted."
+            : "the hidden Visual Studio was killed to release the debugger; the AOS worker (w3wp) does not survive that and IIS starts a new one within seconds. Every client session on this AOS was dropped -- users must reload.";
+
+        public object Detach(bool force)
         {
-            lock (_gate)
+            var t = Target;
+            var locked = Monitor.TryEnter(_gate, TimeSpan.FromSeconds(2));
+            try
             {
-                if (!Attached) { return new { attached = false, note = "not attached" }; }
-                var resumed = false;
-                try
+                if (t == null && !_vs.IsAlive) return new { attached = false, note = "not attached" };
+
+                var how = "graceful"; var resumed = false; var terminated = false;
+                // Even a forced detach gets ONE short graceful try when
+                // automation is not known to be stuck: a clean DetachAll keeps
+                // the target alive, a kill does not.
+                var graceBudgetMs = force ? 5_000 : 15_000;
+                if (!_sta.IsWedged)
                 {
-                    _sta.Invoke(() =>
+                    try
                     {
-                        if (Dbg.CurrentMode == dbgDebugMode.dbgBreakMode) { Dbg.Go(false); resumed = true; }
-                    });
+                        _sta.Invoke(() => { if (Dbg.CurrentMode == dbgDebugMode.dbgBreakMode) { Dbg.Go(false); resumed = true; } }, Math.Min(graceBudgetMs, 8_000), "resume-before-detach");
+                        if (!force) { try { ClearBreakpointsCore(8_000); } catch { } }
+                        _sta.Invoke(() => Dbg.DetachAll(), graceBudgetMs, "detach-all");
+                    }
+                    catch (Exception ex)
+                    {
+                        _log($"graceful detach failed ({ex.Message}); escalating to kill");
+                        how = force ? "killed-vs (forced; graceful detach did not answer)" : "killed-vs (graceful detach failed)";
+                        terminated = _vs.Kill(how);
+                    }
                 }
-                catch { }
-                try { ClearBreakpointsCore(); } catch { }
-                _sta.Invoke(() => Dbg.DetachAll(), 60_000);
-                var t = Target; Target = null; _pausedSince = null;
-                _log($"detached from {t!.ProcessName} pid {t.Pid}");
-                return new { attached = false, detachedFrom = t.Kind, pid = t.Pid, resumedBeforeDetach = resumed };
+                else
+                {
+                    how = "killed-vs (automation wedged)";
+                    terminated = _vs.Kill(how);
+                }
+
+                Target = null; _pausedSince = null; _breakpoints.Clear();
+                _log($"detached from {t?.ProcessName} pid {t?.Pid} ({how})");
+                return new
+                {
+                    attached = false,
+                    detachedFrom = t?.Kind,
+                    pid = t?.Pid,
+                    resumedBeforeDetach = resumed,
+                    how,
+                    targetTerminated = terminated,
+                    note = terminated ? TerminatedNote(t) : null,
+                };
+            }
+            finally
+            {
+                if (locked) Monitor.Exit(_gate);
             }
         }
 
         /// <summary>
         /// The D365 package provides the xppSource:// document resolver. It
         /// loads when an .xpp document is opened; nothing binds until it has.
-        /// Global is in ApplicationPlatform and exists on every box.
+        /// Global is in ApplicationPlatform and exists on every box. Done at
+        /// attach, while nothing is paused.
         /// </summary>
         private void EnsurePackageLoaded()
         {
@@ -161,13 +225,18 @@ namespace XppDebugBridge.Debug
             var cache = XppSourceGenerator.CachePath(_packagesDir, "ApplicationPlatform", "AxClass", "Global");
             XppSourceGenerator.Materialize(xml, cache);
             var sw = Stopwatch.StartNew();
-            _vs.OpenFile(cache, closeAfter: false);
+            _vs.OpenFile(cache, closeAfter: false, timeoutMs: 300_000);
             _packageLoaded = true;
             _log($"D365 package loaded via {Path.GetFileName(cache)} in {sw.Elapsed.TotalSeconds:N1}s");
         }
 
         // ---- breakpoints ---------------------------------------------------------
 
+        /// <summary>
+        /// Works whether the target is running or paused: the source is
+        /// generated to disk and the breakpoint is added by file/line without
+        /// opening the document in VS.
+        /// </summary>
         public object SetBreakpoint(string axType, string name, string method, string model, string xmlPath, int offset, string? condition)
         {
             lock (_gate)
@@ -181,8 +250,6 @@ namespace XppDebugBridge.Debug
                 // offset 0 = the declaration line; VS moves the breakpoint to the
                 // first statement at or after the requested line anyway.
                 var line = declLine + Math.Max(0, offset);
-                _vs.OpenFile(cache, closeAfter: true);
-
                 var rec = new BreakpointRecord { Id = _nextBpId++, AxType = axType, Name = name, Method = method, File = cache, RequestedLine = line, Condition = condition };
                 _sta.Invoke(() =>
                 {
@@ -191,20 +258,19 @@ namespace XppDebugBridge.Debug
                         dbgBreakpointConditionType.dbgBreakpointConditionTypeWhenTrue, "", "", 1, "", 1, dbgHitCountType.dbgHitCountTypeNone);
                     var bp = Dbg.Breakpoints.Item(before + 1);
                     ((Breakpoint2)bp).Tag = "xpp:" + rec.Id;
-                });
+                }, 30_000, "add-breakpoint");
 
-                // Binding is quick once symbols are loaded; give it a few seconds.
-                for (var i = 0; i < 20 && !rec.Bound; i++)
+                for (var i = 0; i < 10 && !rec.Bound; i++)
                 {
                     RefreshBinding(rec);
                     if (!rec.Bound) System.Threading.Thread.Sleep(500);
                 }
                 _breakpoints.Add(rec);
-                return Describe(rec, gen);
+                return Describe(rec);
             }
         }
 
-        private object Describe(BreakpointRecord rec, XppSourceGenerator.Generated? gen)
+        private object Describe(BreakpointRecord rec)
         {
             string? sourceLine = null;
             try
@@ -246,7 +312,7 @@ namespace XppDebugBridge.Debug
                     }
                     return;
                 }
-            });
+            }, 15_000, "refresh-binding");
         }
 
         public object ListBreakpoints()
@@ -254,16 +320,16 @@ namespace XppDebugBridge.Debug
             lock (_gate)
             {
                 foreach (var r in _breakpoints) { if (!r.Bound && Attached) { try { RefreshBinding(r); } catch { } } }
-                return _breakpoints.Select(r => Describe(r, null)).ToArray();
+                return _breakpoints.Select(Describe).ToArray();
             }
         }
 
         public object ClearBreakpoints()
         {
-            lock (_gate) { var n = ClearBreakpointsCore(); return new { cleared = n }; }
+            lock (_gate) { var n = ClearBreakpointsCore(30_000); return new { cleared = n }; }
         }
 
-        private int ClearBreakpointsCore()
+        private int ClearBreakpointsCore(int timeoutMs)
         {
             var n = _breakpoints.Count;
             if (_vs.IsAlive)
@@ -273,7 +339,7 @@ namespace XppDebugBridge.Debug
                     var all = new List<Breakpoint>();
                     foreach (Breakpoint b in Dbg.Breakpoints) all.Add(b);
                     foreach (var b in all) { try { b.Delete(); } catch { } }
-                });
+                }, timeoutMs, "clear-breakpoints");
             }
             _breakpoints.Clear();
             return n;
@@ -294,7 +360,7 @@ namespace XppDebugBridge.Debug
                 }
                 System.Threading.Thread.Sleep(200);
             }
-            return new { hit = false, timedOut = true, timeoutSec, autoResumed = TakeAutoResumed() };
+            return new { hit = false, timedOut = true, timeoutSec, watchdog = TakeWatchdogNote() };
         }
 
         public object Continue()
@@ -303,7 +369,7 @@ namespace XppDebugBridge.Debug
             {
                 RequireAttached();
                 var was = IsBroken();
-                if (was) _sta.Invoke(() => Dbg.Go(false));
+                if (was) _sta.Invoke(() => Dbg.Go(false), 15_000, "go");
                 _pausedSince = null;
                 return new { resumed = was, wasPaused = was };
             }
@@ -323,7 +389,7 @@ namespace XppDebugBridge.Debug
                         case "out": Dbg.StepOut(false); break;
                         default: Dbg.StepOver(false); break;
                     }
-                });
+                }, 15_000, "step");
                 var deadline = DateTime.UtcNow.AddSeconds(20);
                 while (DateTime.UtcNow < deadline && !IsBroken()) System.Threading.Thread.Sleep(100);
                 if (!IsBroken())
@@ -353,14 +419,19 @@ namespace XppDebugBridge.Debug
                         value = Trunc(e.Value, 2000),
                         members = expand ? Members(e, 60) : null,
                     };
-                }, 60_000);
+                }, 30_000, "eval");
             }
         }
 
+        /// <summary>Cheap and lock-free: must answer even while everything else is stuck.</summary>
         public object Status()
         {
             var attached = Attached;
-            var mode = attached ? _sta.Invoke(() => Dbg.CurrentMode.ToString()) : "detached";
+            var wedged = _sta.IsWedged;
+            string mode;
+            if (!attached) mode = "detached";
+            else if (wedged) mode = "unknown (automation not responding)";
+            else { try { mode = _sta.Invoke(() => Dbg.CurrentMode.ToString(), 5_000, "mode"); } catch { mode = "unknown"; } }
             return new
             {
                 attached,
@@ -374,7 +445,9 @@ namespace XppDebugBridge.Debug
                 breakpoints = _breakpoints.Count,
                 vsPid = _vs.Pid,
                 vsAlive = _vs.IsAlive,
-                autoResumed = TakeAutoResumed(),
+                automationWedged = wedged,
+                wedgedOn = wedged ? _sta.WedgedOn : null,
+                watchdog = TakeWatchdogNote(),
             };
         }
 
@@ -433,7 +506,7 @@ namespace XppDebugBridge.Debug
                     maxPauseSeconds = MaxPauseSeconds,
                     note = "the target is PAUSED (all AOS sessions wait). Use debug.eval / debug.step, then debug.continue. It auto-resumes after maxPauseSeconds.",
                 };
-            }, 120_000);
+            }, 60_000, "capture");
         }
 
         private object DescribeFrame(EnvDTE.StackFrame f, int index)
@@ -491,7 +564,7 @@ namespace XppDebugBridge.Debug
         private bool IsBroken()
         {
             if (!Attached) return false;
-            try { return _sta.Invoke(() => Dbg.CurrentMode == dbgDebugMode.dbgBreakMode, 30_000); }
+            try { return _sta.Invoke(() => Dbg.CurrentMode == dbgDebugMode.dbgBreakMode, 10_000, "mode"); }
             catch { return false; }
         }
 
@@ -500,30 +573,52 @@ namespace XppDebugBridge.Debug
             if (!Attached) throw new InvalidOperationException("not attached: call debug.attach first (target: aos | batch)");
         }
 
-        private bool TakeAutoResumed()
+        private string? TakeWatchdogNote()
         {
-            var v = AutoResumedSinceLastReport; AutoResumedSinceLastReport = false; return v;
+            var v = _lastWatchdogAction; _lastWatchdogAction = null; return v;
         }
 
-        /// <summary>Never leave the AOS frozen: resume a pause that outlived its budget.</summary>
+        /// <summary>
+        /// Never leave the AOS frozen. Runs on the timer thread, takes NO lock
+        /// and never queues behind a stuck automation call: past the pause
+        /// budget it tries a bounded Go(), and if automation does not answer it
+        /// kills our VS -- the release that always works.
+        /// </summary>
         private void Watchdog()
         {
             try
             {
-                if (!Monitor.TryEnter(_gate, 0)) return;
-                try
+                var since = _pausedSince;
+                if (!Attached || !since.HasValue) return;
+                var paused = (DateTime.UtcNow - since.Value).TotalSeconds;
+                if (paused < MaxPauseSeconds) return;
+
+                // Graceful first, and keep trying for a while: a resume keeps
+                // the target alive, a kill does not. Only after the budget is
+                // exceeded by a further 30s of automation not answering do we
+                // take the target down with the debugger.
+                if (!_sta.IsWedged || paused < MaxPauseSeconds + 30)
                 {
-                    if (!Attached || !_pausedSince.HasValue) return;
-                    if ((DateTime.UtcNow - _pausedSince.Value).TotalSeconds < MaxPauseSeconds) return;
-                    if (IsBroken())
+                    try
                     {
-                        _sta.Invoke(() => Dbg.Go(false));
-                        AutoResumedSinceLastReport = true;
-                        _log($"watchdog: target was paused for more than {MaxPauseSeconds}s -- resumed");
+                        var resumed = _sta.Invoke(() => { if (Dbg.CurrentMode == dbgDebugMode.dbgBreakMode) { Dbg.Go(false); return true; } return false; }, 5_000, "watchdog-go");
+                        _pausedSince = null;
+                        _lastWatchdogAction = resumed
+                            ? $"watchdog resumed the target after {(int)paused}s paused (budget {MaxPauseSeconds}s)"
+                            : null;
+                        if (resumed) _log(_lastWatchdogAction!);
+                        return;
                     }
-                    _pausedSince = null;
+                    catch (Exception ex) { _log($"watchdog: resume failed ({ex.Message}); will escalate at +30s"); if (paused < MaxPauseSeconds + 30) return; }
                 }
-                finally { Monitor.Exit(_gate); }
+
+                // Automation is not answering: the only release left. The
+                // target dies with its debugger and its host restarts it.
+                var t = Target;
+                var killed = _vs.Kill($"watchdog: target paused {(int)paused}s past budget {MaxPauseSeconds}s and automation is not responding");
+                Target = null; _pausedSince = null; _breakpoints.Clear();
+                _lastWatchdogAction = $"watchdog killed the hidden Visual Studio after {(int)paused}s paused (automation was not responding). The debugger is detached. " + (killed ? TerminatedNote(t) : "");
+                _log(_lastWatchdogAction);
             }
             catch (Exception ex) { _log("watchdog error: " + ex.Message); }
         }
@@ -531,7 +626,7 @@ namespace XppDebugBridge.Debug
         public void Dispose()
         {
             try { _watchdog.Dispose(); } catch { }
-            try { if (Attached) Detach(); } catch { }
+            try { if (Attached) Detach(force: false); } catch { }
         }
     }
 }

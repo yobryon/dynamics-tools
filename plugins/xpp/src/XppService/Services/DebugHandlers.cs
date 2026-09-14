@@ -23,6 +23,7 @@ public sealed partial class PingGrpcService
         if (request.MaxPauseSeconds > 0) p["maxPauseSeconds"] = request.MaxPauseSeconds;
         var r = await DebugCallAsync("debug.attach", p, context.CancellationToken).ConfigureAwait(false);
         _debugBridge.OwnerClientId = request.ClientId ?? string.Empty;
+        _debugBridge.VsPid = I(r, "vsPid");
         return new DebugAttachResponse
         {
             Attached = B(r, "attached"),
@@ -44,7 +45,37 @@ public sealed partial class PingGrpcService
             Target = S(r, "detachedFrom"),
             Pid = I(r, "pid"),
             ResumedBeforeDetach = B(r, "resumedBeforeDetach"),
+            How = S(r, "how"),
+            TargetTerminated = B(r, "targetTerminated"),
+            Note = S(r, "note"),
         };
+    }
+
+    /// <summary>
+    /// Must work when nothing else does. Ask the bridge for a forced detach
+    /// (it kills its hidden VS without touching automation) with a short
+    /// deadline; if the bridge does not answer, kill the bridge and its VS
+    /// from here. Never waits behind a stuck request.
+    /// </summary>
+    public override async Task<DebugDetachResponse> DebugForceDetach(DebugEmpty request, ServerCallContext context)
+    {
+        if (!_debugBridge.IsRunning)
+            return new DebugDetachResponse { WasAttached = false, How = "bridge not running" };
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+            var r = await _debugBridge.InvokeAsync("debug.detach", new JsonObject { ["force"] = true }, cts.Token).ConfigureAwait(false);
+            _debugBridge.OwnerClientId = string.Empty;
+            return new DebugDetachResponse { WasAttached = r?["detachedFrom"] != null, Target = S(r, "detachedFrom"), Pid = I(r, "pid"), How = S(r, "how", "killed-vs (forced)"), TargetTerminated = B(r, "targetTerminated"), Note = S(r, "note") };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Debug bridge did not answer a forced detach ({Reason}); killing bridge + its VS", ex.Message);
+            var how = await _debugBridge.KillAsync().ConfigureAwait(false);
+            return new DebugDetachResponse { WasAttached = true, How = how, TargetTerminated = how == "killed-bridge",
+                Note = how == "killed-bridge" ? "the debug bridge did not answer, so the service killed it and its hidden Visual Studio. The target process died with its debugger and its host (IIS / the batch service) restarts it; sessions on an AOS worker are lost." : "the debug bridge did not answer and was killed; its Visual Studio was already gone" };
+        }
     }
 
     public override async Task<DebugBreakpoint> DebugSetBreakpoint(DebugSetBreakpointRequest request, ServerCallContext context)
@@ -150,11 +181,23 @@ public sealed partial class PingGrpcService
     {
         // Status must not START the bridge (that spawns a VS): answer
         // "detached, bridge not running" cheaply when it is down.
+        var probe = _debugBridge.Probe();
         if (!_debugBridge.IsRunning)
-            return new DebugStatusResponse { Attached = false, Mode = "detached", BridgeRunning = false, Elevated = OperatingSystem.IsWindows() && IsElevated() };
+            return new DebugStatusResponse { Attached = false, Mode = "detached", BridgeRunning = false, Elevated = OperatingSystem.IsWindows() && IsElevated(), BridgeAvailable = probe.Available, BridgeExe = probe.Path };
 
-        var r = await DebugCallAsync("debug.status", new JsonObject(), context.CancellationToken).ConfigureAwait(false);
+        JsonNode? r;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
+            r = await DebugCallAsync("debug.status", new JsonObject(), cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            return new DebugStatusResponse { Attached = true, Mode = "unknown (bridge not responding)", BridgeRunning = true, AutomationWedged = true, Elevated = IsElevated(), BridgeAvailable = probe.Available, BridgeExe = probe.Path, ClientId = _debugBridge.OwnerClientId, Watchdog = "the bridge did not answer within 15s; use xpp_debug_detach force=true to release the target" };
+        }
         var st = r?["status"];
+        if (I(st, "vsPid") > 0) _debugBridge.VsPid = I(st, "vsPid");
         return new DebugStatusResponse
         {
             Attached = B(st, "attached"),
@@ -168,8 +211,12 @@ public sealed partial class PingGrpcService
             Breakpoints = I(st, "breakpoints"),
             Elevated = B(r, "elevated"),
             ClientId = _debugBridge.OwnerClientId,
-            AutoResumed = B(st, "autoResumed"),
+            AutoResumed = !string.IsNullOrEmpty(S(st, "watchdog")),
             BridgeRunning = true,
+            BridgeAvailable = probe.Available,
+            BridgeExe = probe.Path,
+            AutomationWedged = B(st, "automationWedged"),
+            Watchdog = S(st, "watchdog"),
         };
     }
 
@@ -226,7 +273,7 @@ public sealed partial class PingGrpcService
         var c = new DebugCapture
         {
             Hit = B(r, "hit"), TimedOut = B(r, "timedOut"), Paused = B(r, "paused"), ThreadId = I(r, "threadId"),
-            ThreadName = S(r, "threadName"), Note = S(r, "note"), AutoResumed = B(r, "autoResumed"), MaxPauseSeconds = I(r, "maxPauseSeconds"),
+            ThreadName = S(r, "threadName"), Note = S(r, "note"), AutoResumed = !string.IsNullOrEmpty(S(r, "watchdog")), MaxPauseSeconds = I(r, "maxPauseSeconds"),
         };
         if (r?["breakpoint"] is JsonObject bp) c.Breakpoint = new DebugHit { File = S(bp, "file"), Line = I(bp, "line"), Function = S(bp, "function") };
         if (r?["location"] is JsonObject loc) c.Location = MapFrame(loc);

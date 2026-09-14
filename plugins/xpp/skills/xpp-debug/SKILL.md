@@ -113,6 +113,8 @@ session owns it.
   parked while you go read code.
 - **Always detach**, including on the way out of an unrelated error. Check
   `xpp_debug_status` if you are unsure whether a session is still attached.
+- Breakpoints can be added, listed and cleared **while paused** — no need to
+  continue first.
 - The first attach in a machine session sets Visual Studio's
   "DisableAttachSecurityWarning" option (needed to attach to a NETWORK SERVICE
   process from a hidden VS). It is the standard D365 dev-box setting; mention it
@@ -121,6 +123,39 @@ session owns it.
   app-pool recycle at the end of a build kills the debug session.
 - Runtime-only elements (compiled DLLs without on-disk XML) cannot be
   source-debugged; the tools say so.
+
+## If the bridge stops answering while the target is paused
+
+Symptoms: a debug call returns `DeadlineExceeded`, or `xpp_debug_status`
+reports `automationWedged: true` / "bridge not responding". The AOS is frozen
+until something releases it, so act immediately — do not investigate first.
+
+1. **`xpp_debug_detach force=true`.** It runs on a separate short path that
+   never waits behind the stuck call, gives Visual Studio one 5-second chance
+   to detach cleanly, and otherwise kills the hidden VS. If the bridge itself
+   is unresponsive the service kills the bridge and its VS.
+2. **Know what a kill costs, and say so to the user.** A .NET Framework
+   process does not survive losing its debugger: when the hidden VS is killed,
+   the target dies with it. IIS starts a new AOS worker within seconds — but
+   **every client session on that AOS is dropped** (users see a session error
+   and must reload). The batch service restarts `Batch.exe` after about 30
+   seconds; running batch tasks are interrupted. The tool result carries
+   `targetTerminated: true` and a `note` when this happened — relay it. A
+   frozen box is worse than a restarted one, which is why the kill exists, but
+   it is a last resort, not a shortcut.
+3. **The watchdog does the same on its own.** A hit left paused past
+   `maxPauseSeconds` is resumed; if automation will not answer for a further
+   30 seconds the hidden VS is killed (same cost as above). The next
+   `xpp_debug_status` / `xpp_debug_wait` reports what it did.
+4. **Manual recovery, only if the tools themselves are gone:** the hidden VS is
+   the `devenv.exe` whose parent process is `XppDebugBridge.exe` and whose
+   command line ends in `-Embedding` (it has no window). Killing *that* pid
+   releases the debugger with the cost in (2). The developer's own Visual
+   Studio has a window title and `explorer.exe` as its parent — never kill by
+   name.
+
+After any kill, `xpp_debug_attach` starts a fresh hidden VS; breakpoints are
+gone and must be set again.
 
 ## When a trace is the better tool
 

@@ -55,6 +55,10 @@ service XppService {
   rpc DebugStep(DebugStepRequest) returns (DebugCapture);
   rpc DebugEval(DebugEvalRequest) returns (DebugEvalResponse);
   rpc DebugStatus(DebugEmpty) returns (DebugStatusResponse);
+  // The release that always works: bypasses automation and terminates the
+  // hidden Visual Studio (which detaches the debugger instantly); if the
+  // bridge itself does not answer, the service kills the bridge and its VS.
+  rpc DebugForceDetach(DebugEmpty) returns (DebugDetachResponse);
 
   // Enumerate every model the bridge can see, with metadata + the
   // is_binary flag set on modules visible only through the runtime
@@ -1082,6 +1086,14 @@ message DebugDetachResponse {
   string target = 2;
   int32 pid = 3;
   bool resumed_before_detach = 4;
+  // graceful | killed-vs (...) | killed-bridge
+  string how = 5;
+  // True when the hidden Visual Studio had to be killed. A .NET Framework
+  // debuggee does not survive losing its debugger: the target process died
+  // with it and its host (IIS / the batch service) restarts it. Sessions on
+  // an AOS worker are lost.
+  bool target_terminated = 6;
+  string note = 7;
 }
 
 message DebugSetBreakpointRequest {
@@ -1208,4 +1220,12 @@ message DebugStatusResponse {
   string client_id = 11;
   bool auto_resumed = 12;
   bool bridge_running = 13;
+  // Is XppDebugBridge.exe present (resolvable) at all? False means attach
+  // cannot work until it is built; bridge_exe says where it was expected.
+  bool bridge_available = 14;
+  string bridge_exe = 15;
+  // Visual Studio automation is stuck in a call and later calls fail fast.
+  bool automation_wedged = 16;
+  // What the watchdog last did on the caller's behalf, if anything.
+  string watchdog = 17;
 }

@@ -77,6 +77,9 @@ public sealed class BridgeProcess : IAsyncDisposable
     /// <summary>Whether the underlying process is running.</summary>
     public bool IsAlive => _process is { HasExited: false };
 
+    /// <summary>OS pid of the child, or 0 when not running.</summary>
+    public int ProcessId => _process is { HasExited: false } ? _process.Id : 0;
+
     public Task StartAsync(CancellationToken ct)
     {
         if (_process != null) throw new InvalidOperationException("Bridge already started.");
