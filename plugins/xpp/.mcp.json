@@ -10,6 +10,14 @@
         "--no-launch-profile",
         "--verbosity", "quiet"
       ]
+    },
+    "axdb-sql": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["Methodify.SqlMcp", "--yes"],
+      "env": {
+        "CONNECTION_STRING": "Server=(local);Database=AxDB;Trusted_Connection=True;TrustServerCertificate=True"
+      }
     }
   }
 }
