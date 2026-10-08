@@ -7,7 +7,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
-## [Unreleased]
+## [0.4.2] - 2026-10-08
 
 ### Fixed
 
@@ -25,6 +25,10 @@ releases.
   remedy.
 - **Language skill:** `str2con` converts all-digit segments to int64 by
   default, so `conPeek(...) == '1'` is silently never true.
+- **Language skill:** the `axdb-sql` server's tools and parameter names are
+  documented, including the `pattern` argument that Methodify.SqlMcp 0.4.0
+  adds to its list tools (the registration is unpinned, so the new server
+  version is picked up at the next launch once it is on nuget.org).
 
 ## [0.4.1] - 2026-10-08
 
