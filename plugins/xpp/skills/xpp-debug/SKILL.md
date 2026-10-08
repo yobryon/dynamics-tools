@@ -51,7 +51,13 @@ session owns it.
    - Hot methods (`CustTable.find`, `SalesLine.modifiedField`) fire constantly.
      Give them a **condition** so only the case you care about breaks:
      `condition: "_salesLine.SalesId == 'SO-000123'"` (X++ expression; the
-     method's parameters and `this` are in scope).
+     method's parameters and `this` are in scope). **A condition that cannot
+     be evaluated** (a misspelled variable, a method that does not exist on
+     `this`, a local not yet assigned at that line) makes Visual Studio stop
+     at the breakpoint anyway and raise a dialog; the bridge dismisses it and
+     reports it as `vsDialogsDismissed` on the hit, quoting VS's reason. When
+     you see that, the hit is NOT your filtered case: fix or drop the
+     condition before continuing, or every hit will be a false one.
    - `bound: false` is normal for a module the target has not loaded yet; it
      binds when the module loads. If it never binds, the element is probably a
      form/extension or the name is wrong (`xpp_find_object`).
@@ -123,6 +129,15 @@ session owns it.
   app-pool recycle at the end of a build kills the debug session.
 - Runtime-only elements (compiled DLLs without on-disk XML) cannot be
   source-debugged; the tools say so.
+- The session never breaks on thrown or user-unhandled CLR exceptions (set at
+  attach): X++ throws and catches constantly, and a session that paused on
+  every rethrow was mistaken for a wedge. Only breakpoints pause the target.
+- Visual Studio dialogs are dismissed for you. A hidden VS still raises modal
+  message boxes, and while one is up every automation call blocks. The bridge
+  presses OK within a second and reports the dialog's text as
+  `vsDialogsDismissed` on `xpp_debug_status`, `xpp_debug_wait` and hit
+  payloads. Read it: it is usually VS telling you a breakpoint condition
+  failed to evaluate.
 
 ## If the bridge stops answering while the target is paused
 

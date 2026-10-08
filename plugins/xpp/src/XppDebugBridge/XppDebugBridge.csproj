@@ -48,6 +48,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
+    <Reference Include="WindowsBase" />
     <Reference Include="Microsoft.VisualStudio.Interop">
       <HintPath>$(VsInteropPath)</HintPath>
       <EmbedInteropTypes>false</EmbedInteropTypes>

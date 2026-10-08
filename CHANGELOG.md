@@ -7,6 +7,41 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
+## [Unreleased]
+
+### Fixed
+
+- **Conditional breakpoints no longer wedge the debugger.** A condition
+  Visual Studio cannot evaluate raised a modal message box in the hidden VS;
+  with nobody to click it, every automation call blocked and the only
+  release was killing VS (which kills the debuggee). The bridge now
+  dismisses VS dialogs within a second through UI Automation, stops at the
+  breakpoint, and reports the dialog's text as `vsDialogsDismissed` on
+  status, wait and hit payloads so a bad condition is named, not hidden.
+  The session also no longer breaks on thrown or user-unhandled CLR
+  exceptions (set at attach), so X++'s routine throw/catch traffic does
+  not pause the target.
+- **`xpp_compile` keeps its result when the client times out.** The service
+  tracks the running build (devenv pid, last completed step, output age,
+  process alive); a new `xpp_compile_status` tool reports progress and, once
+  finished, the full result. `xpp_compile(background=true)` starts a build
+  and returns at once; a second compile while one runs reports
+  `buildInProgress` instead of racing it.
+- **Validation-before-compile failures are retried.** When a failed build's
+  errors are all metadata-validation diagnostics (`MethodMustBeStatic`,
+  `MethodReturnTypeInvalid`, `DataMethodNotFoundOnDataSource` on objects
+  whose X++ changed in that build), `xpp_compile` runs one more plain build
+  and returns it with `orderingRetry`; the hint also fires on failure now.
+- **`xpp_scm_status` lists pending deletes.** A six-letter `delete` filled the
+  status column and was followed by one space, so the parser dropped every
+  delete row. Rows are parsed by the header's column boundaries now.
+- **Invalid argument values** (`verbosity`, `scope`) on the compile and BP
+  tools return `invalid_argument` with the valid values instead of the
+  SDK's contentless error.
+- **Unchanged methods are never re-indented.** `xpp_patch_by_path` sends a
+  whole top-level branch, so "supplied" was not "changed"; sources identical
+  to what is on disk are left byte-for-byte alone, on classes and forms.
+
 ## [0.4.2] - 2026-10-08
 
 ### Fixed

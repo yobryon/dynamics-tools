@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Grpc.Core;
@@ -75,6 +76,96 @@ public sealed partial class PingGrpcService
 
     public override async Task<CompileResponse> Compile(CompileRequest request, ServerCallContext context)
     {
+        // One devenv build per box. A second call while one runs reports the
+        // running build instead of racing it for the result files.
+        var running = BuildTracker.Snapshot();
+        if (running != null)
+            return new CompileResponse { BuildInProgress = true, Progress = running, SummaryLine = "a build is already running; see progress" };
+
+        if (request.Background)
+        {
+            // Fire and forget: the tracker holds the result for CompileStatus.
+            _ = Task.Run(async () =>
+            {
+                try { var r = await RunWithRetryAsync(request, CancellationToken.None).ConfigureAwait(false); BuildTracker.Finished(r); }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "background build failed to run");
+                    BuildTracker.Finished(new CompileResponse { Success = false, SummaryLine = "background build failed to run: " + ex.Message });
+                }
+            });
+            // Give the process a moment to start so the pid is in the answer.
+            for (var i = 0; i < 20 && BuildTracker.Snapshot() == null; i++) await Task.Delay(100).ConfigureAwait(false);
+            return new CompileResponse { StartedInBackground = true, Progress = BuildTracker.Snapshot() ?? new BuildProgress(), SummaryLine = "build started in the background; poll CompileStatus" };
+        }
+
+        try
+        {
+            var result = await RunWithRetryAsync(request, context.CancellationToken).ConfigureAwait(false);
+            BuildTracker.Finished(result);
+            return result;
+        }
+        catch
+        {
+            BuildTracker.Finished(null);
+            throw;
+        }
+    }
+
+    public override Task<CompileStatusResponse> CompileStatus(CompileStatusRequest request, ServerCallContext context)
+        => Task.FromResult(BuildTracker.Status());
+
+    /// <summary>
+    /// Metadata validation runs BEFORE the X++ compile, so an object whose
+    /// X++ changed in this build can be validated against its stale
+    /// predecessor and fail with precise, wrong errors (MethodMustBeStatic /
+    /// MethodReturnTypeInvalid on every computed column of a touched view;
+    /// DataMethodNotFoundOnDataSource on a form using it). A second build with
+    /// no edits is green. When every error is of that kind, run the second
+    /// build here rather than hand the agent a failure it would "fix".
+    /// </summary>
+    private async Task<CompileResponse> RunWithRetryAsync(CompileRequest request, CancellationToken ct)
+    {
+        var first = await RunBuildAsync(request, ct).ConfigureAwait(false);
+        if (first.Success || !request.RetryOrderingArtifacts || !LooksLikeOrderingArtifacts(first)) return first;
+
+        var monikers = first.Diagnostics
+            .Where(d => string.Equals(d.Severity, "Error", StringComparison.OrdinalIgnoreCase))
+            .Select(d => d.Moniker).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        _logger.LogInformation("Build failed on metadata-validation-only errors ({Monikers}); running a second /Build to clear ordering artifacts", string.Join(",", monikers));
+        var second = await RunBuildAsync(new CompileRequest(request) { Rebuild = false }, ct).ConfigureAwait(false);
+        second.OrderingRetry = true;
+        second.OrderingRetryNote =
+            $"first pass failed with {first.Diagnostics.Count(d => string.Equals(d.Severity, "Error", StringComparison.OrdinalIgnoreCase))} metadata-validation error(s) " +
+            $"({string.Join(", ", monikers)}) in {first.ElapsedMs} ms; validation runs before the X++ compile, so these were checked against " +
+            "not-yet-compiled objects. A second plain /Build was run; this response is that second pass." +
+            (second.Success ? " It is green: the first-pass errors were ordering artifacts, not defects." : " It still fails: treat its errors as real.");
+        second.ElapsedMs += first.ElapsedMs;
+        return second;
+    }
+
+    private static readonly HashSet<string> OrderingMonikers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "MethodMustBeStatic", "MethodReturnTypeInvalid", "InvalidMethodSignature", "DataMethodNotFoundOnDataSource",
+        "MethodDoesNotExistOnClass", "MethodNotFound", "DisplayMethodNotFound",
+    };
+
+    private static bool LooksLikeOrderingArtifacts(CompileResponse r)
+    {
+        var errors = r.Diagnostics.Where(d => string.Equals(d.Severity, "Error", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (errors.Count == 0) return false;
+        foreach (var e in errors)
+        {
+            var moniker = e.Moniker ?? string.Empty;
+            if (moniker.StartsWith("PatternControl", StringComparison.OrdinalIgnoreCase)) return false;
+            var metadataShaped = string.Equals(e.DiagnosticType, "MetadataProvider", StringComparison.OrdinalIgnoreCase);
+            if (!metadataShaped && !OrderingMonikers.Contains(moniker)) return false;
+        }
+        return true;
+    }
+
+    private async Task<CompileResponse> RunBuildAsync(CompileRequest request, CancellationToken ct)
+    {
         if (string.IsNullOrWhiteSpace(request.SlnPath))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "sln_path is required"));
         if (string.IsNullOrWhiteSpace(request.RnrprojPath))
@@ -143,13 +234,36 @@ public sealed partial class PingGrpcService
         using var process = Process.Start(psi)
             ?? throw new RpcException(new Status(StatusCode.Internal, "devenv.com could not be started"));
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
+        // Capture stdout line by line so the tracker can report WHERE the
+        // build is while it runs: a client that lost this call (the host's
+        // tool timeout is shorter than a rebuild with DB sync) asks
+        // CompileStatus and sees "X++ compilation done, nothing since 18 min"
+        // instead of nothing at all.
+        BuildTracker.Started(process.Id, request.SlnPath, request.Rebuild);
+        var stdoutSb = new StringBuilder();
+        var stderrSb = new StringBuilder();
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data == null) return;
+            lock (stdoutSb) stdoutSb.AppendLine(e.Data);
+            BuildTracker.Output(e.Data, StepTimingRegex);
+        };
+        process.ErrorDataReceived += (_, e) => { if (e.Data == null) return; lock (stderrSb) stderrSb.AppendLine(e.Data); };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync(context.CancellationToken).ConfigureAwait(false);
-        var stdout = await stdoutTask.ConfigureAwait(false);
-        var stderr = await stderrTask.ConfigureAwait(false);
-        sw.Stop();
+        try
+        {
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            sw.Stop();
+        }
+        process.WaitForExit(); // flush the async readers
+        string stdout, stderr;
+        lock (stdoutSb) stdout = stdoutSb.ToString();
+        lock (stderrSb) stderr = stderrSb.ToString();
 
         var response = new CompileResponse
         {
@@ -247,7 +361,7 @@ public sealed partial class PingGrpcService
             try
             {
                 using var fs = File.OpenRead(path);
-                var doc = await XDocument.LoadAsync(fs, LoadOptions.None, context.CancellationToken).ConfigureAwait(false);
+                var doc = await XDocument.LoadAsync(fs, LoadOptions.None, ct).ConfigureAwait(false);
                 foreach (var el in doc.Descendants("Diagnostic"))
                 {
                     var diag = ParseDiagnostic(el);
@@ -321,7 +435,7 @@ public sealed partial class PingGrpcService
         if (request.RecycleAppPool && response.Success && !response.AppPoolRecycled)
         {
             var rsw = Stopwatch.StartNew();
-            var err = await RecycleAppPoolAsync(context.CancellationToken).ConfigureAwait(false);
+            var err = await RecycleAppPoolAsync(ct).ConfigureAwait(false);
             rsw.Stop();
             if (err == null)
             {
@@ -587,5 +701,92 @@ public sealed partial class PingGrpcService
         }
         catch { /* swallow — caller will surface a friendly error */ }
         return null;
+    }
+}
+
+
+/// <summary>
+/// Process-wide record of the devenv build in flight (one per box) and the
+/// last finished result. Lets a client that lost its Compile call (the host's
+/// tool timeout is shorter than a long rebuild) find out whether the build is
+/// still running, where it is, and what it produced.
+/// </summary>
+internal static class BuildTracker
+{
+    private static readonly object Gate = new();
+    private static BuildProgress? _current;
+    private static DateTime _startedUtc, _lastOutputUtc;
+    private static string _lastStep = "starting", _lastLine = string.Empty;
+    private static CompileResponse? _lastResult;
+    private static DateTime? _lastFinishedUtc;
+
+    public static void Started(int pid, string sln, bool rebuild)
+    {
+        lock (Gate)
+        {
+            _startedUtc = _lastOutputUtc = DateTime.UtcNow;
+            _lastStep = "starting"; _lastLine = string.Empty;
+            _current = new BuildProgress { Pid = pid, SlnPath = sln, Rebuild = rebuild };
+        }
+    }
+
+    public static void Output(string line, Regex stepTiming)
+    {
+        lock (Gate)
+        {
+            _lastOutputUtc = DateTime.UtcNow;
+            _lastLine = line.Length > 300 ? line[..300] : line;
+            // Only what devenv reports COMPLETE. A keyword guess ("DbSync" in a
+            // settings line) once claimed a sync in progress before the compile
+            // had run; the status hint explains silence instead.
+            var m = stepTiming.Match(line);
+            if (m.Success) _lastStep = m.Groups["step"].Value.Trim();
+        }
+    }
+
+    public static void Finished(CompileResponse? result)
+    {
+        lock (Gate)
+        {
+            _current = null;
+            if (result != null) { _lastResult = result; _lastFinishedUtc = DateTime.UtcNow; }
+        }
+    }
+
+    public static BuildProgress? Snapshot()
+    {
+        lock (Gate)
+        {
+            if (_current == null) return null;
+            var now = DateTime.UtcNow;
+            bool alive;
+            try { using var p = Process.GetProcessById(_current.Pid); alive = !p.HasExited; }
+            catch { alive = false; }
+            return new BuildProgress
+            {
+                Pid = _current.Pid,
+                SlnPath = _current.SlnPath,
+                Rebuild = _current.Rebuild,
+                StartedUtc = _startedUtc.ToString("o"),
+                ElapsedMs = (long)(now - _startedUtc).TotalMilliseconds,
+                LastStepCompleted = _lastStep,
+                LastOutputLine = _lastLine,
+                LastOutputAgeMs = (long)(now - _lastOutputUtc).TotalMilliseconds,
+                ProcessAlive = alive,
+            };
+        }
+    }
+
+    public static CompileStatusResponse Status()
+    {
+        var snap = Snapshot();
+        var r = new CompileStatusResponse { Running = snap != null };
+        if (snap != null) r.Progress = snap;
+        lock (Gate)
+        {
+            if (_lastResult != null) r.LastResult = _lastResult;
+            if (_lastFinishedUtc != null) r.LastFinishedUtc = _lastFinishedUtc.Value.ToString("o");
+        }
+        return r;
     }
 }

@@ -456,6 +456,29 @@ Cold-start tax is ~14s (devenv loading). With nothing to compile
 the build is `upToDate: true` and finishes in ~17s; a real
 /Rebuild on a small project is ~30-35s.
 
+**Long builds and lost results.** A rebuild with `DBSyncInBuild` on can
+outlive the tool-call timeout; the build keeps running and the result is
+NOT lost. `xpp_compile_status` reports the running build (devenv pid,
+elapsed, the last step devenv reported complete, how long since it last
+wrote anything, whether the process is alive) and, once it finishes, the
+full result as `lastResult`. The pipeline order is metadata validation,
+X++ compilation, best-practice check, then the database synchronization,
+which prints nothing until it completes and can take 20+ minutes; silence
+after "Best practice check" is normally that sync. For a build you expect
+to be long, call `xpp_compile(background=true)` and poll
+`xpp_compile_status` every 30-60 s. One devenv build runs at a time: a
+second `xpp_compile` while one runs returns `buildInProgress` instead of
+starting another.
+
+**Validation runs before the compile.** Metadata validation checks objects
+against their not-yet-recompiled state, so the first build after changing a
+view's computed columns (or a form that uses a view's display methods) can
+fail with `MethodMustBeStatic` / `MethodReturnTypeInvalid` /
+`DataMethodNotFoundOnDataSource` on correct code. `xpp_compile` detects a
+failure whose errors are all of that kind, runs one more plain build, and
+returns that second pass with `orderingRetry` explaining what the first pass
+said. If the second pass still fails, its errors are real.
+
 **When to call:** at meaningful checkpoints, not after every edit.
 Use `xpp_bp_check(scope=changeset)` as the cheap inner-loop signal;
 reserve `xpp_compile` for "I'm done with this work item — does it

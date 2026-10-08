@@ -67,7 +67,7 @@ namespace XppDebugBridge.Debug
         public DebugSession(StaWorker sta, VsHost vs, string packagesDir, Action<string> log)
         {
             _sta = sta; _vs = vs; _packagesDir = packagesDir; _log = log;
-            _watchdog = new Timer(_ => Watchdog(), null, 5000, 5000);
+            _watchdog = new Timer(_ => Watchdog(), null, 1000, 1000);
         }
 
         private DTE2 Dte => _vs.Dte ?? throw new InvalidOperationException("Visual Studio is not running");
@@ -120,6 +120,28 @@ namespace XppDebugBridge.Debug
                     if (!ready) System.Threading.Thread.Sleep(500);
                 }
                 if (!ready) throw new InvalidOperationException("attach did not complete (no debugged process reported)");
+
+                // X++ code throws and catches freely (info-log exceptions,
+                // duplicate-key retries); a session that breaks on thrown or
+                // "user-unhandled" CLR exceptions sits paused on every rethrow.
+                // Break only on breakpoints.
+                try
+                {
+                    _sta.Invoke(() =>
+                    {
+                        var d3 = (EnvDTE90.Debugger3)Dbg;
+                        foreach (EnvDTE90.ExceptionSettings g in d3.ExceptionGroups)
+                        {
+                            if (g.Name.IndexOf("Common Language Runtime", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                            foreach (EnvDTE90.ExceptionSetting es in g)
+                            {
+                                g.SetBreakWhenThrown(false, es);
+                                g.SetBreakWhenUserUnhandled(false, es);
+                            }
+                        }
+                    }, 30_000, "exception-settings");
+                }
+                catch (Exception ex) { _log("could not adjust exception settings (continuing): " + ex.Message); }
 
                 Target = target;
                 _pausedSince = null;
@@ -360,7 +382,7 @@ namespace XppDebugBridge.Debug
                 }
                 System.Threading.Thread.Sleep(200);
             }
-            return new { hit = false, timedOut = true, timeoutSec, watchdog = TakeWatchdogNote() };
+            return new { hit = false, timedOut = true, timeoutSec, watchdog = TakeWatchdogNote(), vsDialogsDismissed = TakeDialogNotes() };
         }
 
         public object Continue()
@@ -448,6 +470,7 @@ namespace XppDebugBridge.Debug
                 automationWedged = wedged,
                 wedgedOn = wedged ? _sta.WedgedOn : null,
                 watchdog = TakeWatchdogNote(),
+                vsDialogsDismissed = TakeDialogNotes(),
             };
         }
 
@@ -493,6 +516,7 @@ namespace XppDebugBridge.Debug
                 return new
                 {
                     hit,
+                    vsDialogsDismissed = TakeDialogNotes(),
                     paused = true,
                     threadId = th?.ID,
                     threadName = th?.Name,
@@ -584,10 +608,40 @@ namespace XppDebugBridge.Debug
         /// budget it tries a bounded Go(), and if automation does not answer it
         /// kills our VS -- the release that always works.
         /// </summary>
+        private readonly List<string> _dialogNotes = new List<string>();
+
+        /// <summary>Dialogs the watchdog dismissed since the last time anyone
+        /// asked; a breakpoint whose condition failed to evaluate shows up
+        /// here with Visual Studio's own explanation.</summary>
+        private string[] TakeDialogNotes()
+        {
+            lock (_dialogNotes)
+            {
+                if (_dialogNotes.Count == 0) return null;
+                var a = _dialogNotes.ToArray(); _dialogNotes.Clear(); return a;
+            }
+        }
+
         private void Watchdog()
         {
             try
             {
+                // A hidden VS still raises modal dialogs, and while one is up
+                // every automation call blocks. Press OK and keep the text.
+                var pid = _vs.Pid;
+                if (pid > 0)
+                {
+                    var dismissed = ModalDialogs.DismissAll(pid);
+                    if (dismissed.Count > 0)
+                        lock (_dialogNotes)
+                            foreach (var d in dismissed)
+                            {
+                                // VS re-raises the same box a few times per hit; one note is enough.
+                                if (_dialogNotes.Count > 0 && _dialogNotes[_dialogNotes.Count - 1] == d) continue;
+                                _dialogNotes.Add(d); _log("dismissed a Visual Studio dialog: " + d);
+                            }
+                }
+
                 var since = _pausedSince;
                 if (!Attached || !since.HasValue) return;
                 var paused = (DateTime.UtcNow - since.Value).TotalSeconds;

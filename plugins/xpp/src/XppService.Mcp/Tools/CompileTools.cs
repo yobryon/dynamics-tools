@@ -58,6 +58,8 @@ public sealed class CompileTools
         "slnPath (see dynamics-xpp:xpp-project).")]
     public async Task<string> CompileProject(
         [Description("When true, run /Rebuild instead of /Build. Forces fresh diagnostics.")] bool rebuild = false,
+        [Description("Default true. When a FAILED build's errors are all metadata-validation diagnostics (MethodMustBeStatic / MethodReturnTypeInvalid on a touched view's computed columns, DataMethodNotFoundOnDataSource on a form using it), run one more plain build automatically and return THAT: validation runs before the X++ compile, so a first build after such a change validates against stale objects and reports precise, wrong errors that a second build clears. The response says when this happened (orderingRetry). Set false to see the raw first pass.")] bool retryOrderingArtifacts = true,
+        [Description("When true, start the build and return at once with the devenv pid; poll xpp_compile_status for progress and the final result. Use for long rebuilds (DB sync enabled) that would outlive the tool-call timeout.")] bool background = false,
         [Description("When true, recycle the AOSService app pool after a SUCCESSFUL build (unless the build already did). Needed before verifying METADATA-only changes in the browser: menu items, menus, security objects, tiles and labels are served from the AOS metadata cache until a recycle, so a stale cache can show a deleted menu item or hide a new one. X++ code changes do not need it. Costs the AOS a cold start (~1-2 min before the first page).")] bool recycleAppPool = false,
         [Description("\"default\" | \"full\". Default summarises non-error diagnostics; full returns every diagnostic.")] string? verbosity = null,
         [Description("Optional. When set, toggles the rnrproj's DBSyncInBuild property BEFORE building (true=enable, false=disable), then leaves it set. The database sync still runs only as a product of a SUCCESSFUL (re)build per that property — there is no standalone sync. Pair with rebuild=true to materialize a schema change. Omit to leave the project's setting untouched.")] bool? syncDb = null,
@@ -122,6 +124,8 @@ public sealed class CompileTools
                 Module = resolved.Module,
                 Rebuild = rebuild,
                 RecycleAppPool = recycleAppPool,
+                RetryOrderingArtifacts = retryOrderingArtifacts,
+                Background = background,
                 Configuration = "Debug|Any CPU"
             }, cancellationToken: ct);
         }
@@ -146,9 +150,75 @@ public sealed class CompileTools
             warnings = dbSyncWarnings.Count > 0 ? dbSyncWarnings.ToArray() : null,
         };
 
+        if (rsp.BuildInProgress)
+            return JsonSerializer.Serialize(new
+            {
+                buildInProgress = true,
+                progress = ShapeProgress(rsp.Progress),
+                message = "No build was started: one is already running on this box (one devenv build at a time). Poll xpp_compile_status; it returns the result when that build finishes.",
+            });
+        if (rsp.StartedInBackground)
+            return JsonSerializer.Serialize(new
+            {
+                started = true,
+                background = true,
+                progress = ShapeProgress(rsp.Progress),
+                message = "Build started. Poll xpp_compile_status (every 30-60 s) for lastStepCompleted / lastOutputAgeMs; when running=false its lastResult is this build's full result.",
+            });
+
         var suppress = new HashSet<string>(resolved.BpSuppress, StringComparer.Ordinal);
         return JsonSerializer.Serialize(ShapeResponse(rsp, verbosityNormalized == "full", suppress, dbSync));
     }
+
+    [McpServerTool(Name = "xpp_compile_status"), Description(
+        "Progress of the devenv build that is running on this box, or the last one that finished. Use it when an " +
+        "xpp_compile call timed out client-side (the build keeps running; the result is NOT lost) or after " +
+        "xpp_compile background=true. running=true: progress shows the devenv pid, elapsed time, the last build step " +
+        "reported complete (Metadata validation / X++ compilation / Best practice check / Database synchronization), " +
+        "the last output line and how long ago it was written, and whether the process is alive. A DB sync can be " +
+        "silent for many minutes; a dead process with running=true means devenv was killed. running=false: lastResult " +
+        "is the finished build's full result (same shape as xpp_compile).")]
+    public async Task<string> CompileStatus(CancellationToken ct = default)
+    {
+        CompileStatusResponse st;
+        try { st = await _conn.Client.CompileStatusAsync(new CompileStatusRequest(), cancellationToken: ct); }
+        catch (RpcException rx) { return JsonSerializer.Serialize(new { error = rx.StatusCode.ToString(), message = rx.Status.Detail }); }
+
+        object? last = null;
+        if (st.LastResult != null && !string.IsNullOrEmpty(st.LastFinishedUtc))
+        {
+            var suppress = new HashSet<string>(StringComparer.Ordinal);
+            try { var r = _project.Resolve(); if (r != null) suppress = new HashSet<string>(r.BpSuppress, StringComparer.Ordinal); } catch { }
+            last = ShapeResponse(st.LastResult, false, suppress, new { note = "see xpp_compile for dbSync details" });
+        }
+        return JsonSerializer.Serialize(new
+        {
+            running = st.Running,
+            progress = st.Running ? ShapeProgress(st.Progress) : null,
+            lastFinishedUtc = string.IsNullOrEmpty(st.LastFinishedUtc) ? null : st.LastFinishedUtc,
+            lastResult = last,
+            hint = st.Running
+                ? (st.Progress.ProcessAlive
+                    ? (st.Progress.LastOutputAgeMs > 600_000
+                        ? "devenv has written nothing for over 10 minutes. The pipeline is: Metadata validation, X++ compilation, Best practice check, then (with DBSyncInBuild) the database synchronization, which prints nothing until it completes and can take 20+ minutes on a full sync. Silence after 'Best practice check' is normally that sync; silence after an earlier step is suspicious. The operator can kill devenv.com (pid above) and rebuild."
+                        : "build is progressing; poll again in 30-60 s. Silence after 'Best practice check' is normally the database synchronization.")
+                    : "the devenv process is gone but no result was recorded: it was killed or crashed. Run xpp_compile again.")
+                : (last == null ? "no build has run since the service started" : "no build is running; lastResult is the most recent finished build"),
+        });
+    }
+
+    private static object ShapeProgress(BuildProgress p) => new
+    {
+        pid = p.Pid,
+        startedUtc = p.StartedUtc,
+        elapsedMs = p.ElapsedMs,
+        lastStepCompleted = p.LastStepCompleted,
+        lastOutputLine = p.LastOutputLine,
+        lastOutputAgeMs = p.LastOutputAgeMs,
+        processAlive = p.ProcessAlive,
+        rebuild = p.Rebuild,
+        slnPath = p.SlnPath,
+    };
 
     private static object ShapeResponse(CompileResponse rsp, bool fullDetail, HashSet<string> suppress, object dbSync)
     {
@@ -208,6 +278,13 @@ public sealed class CompileTools
                       "deleted menu item or miss a new one. Pass recycleAppPool=true (or restart the AOSService app pool) before verifying those.");
         if (!string.IsNullOrEmpty(rsp.AppPoolRecycleError))
             hints.Add("App pool recycle was requested but failed: " + rsp.AppPoolRecycleError);
+        if (rsp.OrderingRetry)
+            hints.Add("orderingRetry: " + rsp.OrderingRetryNote);
+        if (!rsp.Success && !rsp.OrderingRetry && errorDiags.Count > 0
+            && errorDiags.All(d => string.Equals(d.DiagnosticType, "MetadataProvider", StringComparison.OrdinalIgnoreCase)))
+            hints.Add("Every error is a metadata-validation diagnostic. Validation runs BEFORE the X++ compile, so errors on objects " +
+                      "whose X++ changed in this build (computed columns of a touched view, a form using its display methods) may be " +
+                      "ordering artifacts: run the build once more before changing code. retryOrderingArtifacts=true does that automatically.");
 
         return new
         {
@@ -254,6 +331,7 @@ public sealed class CompileTools
             rawOutput,
             relevantSkills,
             hints = hints.Count > 0 ? hints.ToArray() : null,
+            orderingRetry = rsp.OrderingRetry ? new { retried = true, note = rsp.OrderingRetryNote } : null,
             verbosity = fullDetail ? "full" : "default"
         };
     }

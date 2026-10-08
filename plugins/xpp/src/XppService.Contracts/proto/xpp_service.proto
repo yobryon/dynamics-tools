@@ -236,6 +236,10 @@ service XppService {
   // -------------------------------------------------------------------------
 
   rpc Compile(CompileRequest) returns (CompileResponse);
+  // Progress of the build that is running (or the last one that finished).
+  // The result of a build whose client lost the Compile call (host-side
+  // tool timeout) is retrievable here once the build completes.
+  rpc CompileStatus(CompileStatusRequest) returns (CompileStatusResponse);
 }
 
 // =============================================================================
@@ -902,6 +906,14 @@ message CompileRequest {
   // tiles) are served from the AOS metadata cache until a recycle, so a
   // browser check can "verify" a deleted item or miss a new one.
   bool recycle_app_pool = 6;
+  // When a FAILED build's errors are all metadata-validation diagnostics
+  // (validation runs before the X++ compile, so an object compiled in this
+  // build can be validated against its stale predecessor), run one more
+  // plain /Build and report that instead. Default true from the MCP.
+  bool retry_ordering_artifacts = 7;
+  // Start the build and return at once with the devenv pid; poll
+  // CompileStatus for progress and the final result.
+  bool background = 8;
 }
 
 message CompileResponse {
@@ -944,6 +956,43 @@ message CompileResponse {
   repeated string relevant_skills = 10;
   // Set when recycle_app_pool was requested and the recycle failed.
   string app_pool_recycle_error = 11;
+  // True when no build was started because one is already running; see
+  // progress. A box runs one devenv build at a time.
+  bool build_in_progress = 12;
+  BuildProgress progress = 13;
+  // True when background was requested: the build is running, nothing else
+  // in this response is meaningful. Poll CompileStatus.
+  bool started_in_background = 14;
+  // True when a first pass failed on metadata-validation-only errors and a
+  // second plain /Build was run; this response is the SECOND pass.
+  bool ordering_retry = 15;
+  // What the first pass reported, for the record.
+  string ordering_retry_note = 16;
+}
+
+message BuildProgress {
+  int32 pid = 1;
+  string started_utc = 2;
+  int64 elapsed_ms = 3;
+  // Last build step devenv reported complete ("Metadata validation",
+  // "X++ compilation", "Best practice check", "Database synchronization",
+  // ...), or "starting" before the first.
+  string last_step_completed = 4;
+  string last_output_line = 5;
+  int64 last_output_age_ms = 6;
+  bool process_alive = 7;
+  string sln_path = 8;
+  bool rebuild = 9;
+}
+
+message CompileStatusRequest {}
+
+message CompileStatusResponse {
+  bool running = 1;
+  BuildProgress progress = 2;
+  // The most recent finished build's full result, when one exists.
+  CompileResponse last_result = 3;
+  string last_finished_utc = 4;
 }
 
 message CompileTiming {
