@@ -1,86 +1,139 @@
 {
   "_doc": [
-    "Minimal typed WorkspaceOperational request for xpp_create_form.",
-    "As of 10.0.25, workspaces scroll VERTICALLY — content sections are stacked, not panoramic.",
-    "Structure: ActionPane + Group with multiple section groups inside. Each section uses one of the workspace sub-patterns (Section Tiles, Section Tabbed List, Section Related Links, etc. — see dynamics-xpp:xpp-form-subpatterns).",
-    "This example shows the bare structural shape: SummaryTiles section + a TabbedList section + a Related Links section. Substitute real tiles, lists, and menu items."
+    "Typed WorkspaceOperational request for xpp_create_form. Shape taken from a live read of the shipped RetailITWorkspace (10.0.4x): every pattern name, version, style and extended style below is what the metadata on disk actually carries.",
+    "Structure: optional ActionPane, optional WorkspacePageFilterGroup (a Group BEFORE the Tab), then ONE Tab (style FastTabs, ExtendedStyle tab_simpleFastTab) whose TabPages are the sections: SectionTiles, SectionTabbedList, optional SectionStackedChart (dynamics-xpp:xpp-workspace-charts), optional SectionPowerBI, SectionRelatedLinks.",
+    "Build order: the list parts (FormPart forms + their Display menu items) and the AxTiles + their menu items must exist BEFORE this form is created; a SectionTabbedList tab page with no FormPartControl fails compile (PatternControlMissingChild).",
+    "Workspace forms have NO data sources. Substitute real tiles, parts, menu items and labels."
   ],
   "name": "MyOperationalWorkspace",
   "design": {
     "caption": "@MyLabels:MyWorkspace",
     "pattern": "WorkspaceOperational",
     "patternVersion": "1.1",
-    "style": "WorkspaceOperational",
+    "style": "Workspace",
+    "viewEditMode": "View",
+    "otherProperties": { "ShowNewButton": "No", "ShowDeleteButton": "No" },
     "controls": [
       {
-        "name": "ActionPane",
-        "kind": "ActionPane",
+        "_doc": "Optional page filter: ONE unbound control (set its extendedDataType directly) in a Group with the WorkspacePageFilterGroup pattern, placed BEFORE the Tab. See the skill for how its value reaches tiles and parts.",
+        "name": "WorkspaceFilterGroup",
+        "kind": "Group",
+        "pattern": "WorkspacePageFilterGroup",
+        "patternVersion": "1.0",
+        "style": "CustomFilter",
+        "viewEditMode": "Edit",
+        "otherProperties": { "FrameType": "None" },
         "controls": [
-          {"name": "ActionPaneTab", "kind": "ActionPaneTab", "controls": []}
+          { "name": "WorkGroupFilter", "kind": "String", "autoDeclaration": true, "extendedDataType": "MyWorkGroupId" }
         ]
       },
       {
-        "_doc": "Sections live under a top-level Group. Order is the display order.",
-        "name": "WorkspacePage",
-        "kind": "Group",
+        "name": "PanoramaBody",
+        "kind": "Tab",
+        "autoDeclaration": true,
+        "style": "FastTabs",
+        "otherProperties": { "ExtendedStyle": "tab_simpleFastTab" },
         "controls": [
           {
-            "_doc": "Section Tiles: count tiles or KPI tiles. Each tile binds to a separate AxTile + AxMenuItem (Display) — author them first via xpp_create_tile / xpp_create_menuitem.",
-            "name": "SummaryTiles",
-            "kind": "Group",
-            "pattern": "TilesSummary",
+            "_doc": "Section Tiles. Count/KPI tiles are MenuFunctionButtons whose extension is TileButtonControl pointing at an AxTile (dynamics-xpp:xpp-tile). A chart tile is a Container/FormPartControl instead (dynamics-xpp:xpp-workspace-charts). ArrangeMethod + ExtendedStyle are required by the pattern and not caught at write time.",
+            "name": "Summary",
+            "kind": "TabPage",
+            "pattern": "SectionTiles",
             "patternVersion": "1.1",
+            "caption": "@MyLabels:Summary",
+            "autoDeclaration": true,
+            "widthMode": "Auto",
+            "heightMode": "Auto",
+            "otherProperties": { "FastTabExpanded": "Yes", "ArrangeMethod": "HorizontalLeft", "ExtendedStyle": "workspace_tileLayout" },
             "controls": [
               {
                 "name": "PendingItemsTile",
                 "kind": "MenuFunctionButton",
-                "menuItemName": "MyPendingItemsTile",
-                "menuItemType": "Display",
-                "style": "Link",
-                "otherProperties": {"ButtonDisplay": "TextOnly"}
+                "text": "@MyLabels:PendingItems",
+                "formControlExtension": {
+                  "name": "TileButtonControl",
+                  "extensionProperties": [
+                    { "name": "tile", "type": "String", "value": "MyPendingItemsTile" },
+                    { "name": "tileDisplay", "type": "Enum", "otherProperties": { "TypeName": "TileDisplay" } }
+                  ]
+                }
               }
             ]
           },
           {
-            "_doc": "Section Tabbed List: multiple list variants, one visible at a time via inner tabs.",
-            "name": "ActiveWorkSection",
-            "kind": "Group",
-            "pattern": "ListPanelTabbed",
+            "_doc": "Section Tabbed List: an inner Tab with VerticalTabs style; each inner TabPage holds exactly one Container/FormPartControl whose targetName is the DISPLAY MENU ITEM of a FormPartSectionList form. Both size modes SizeToAvailable, the whole way down.",
+            "name": "ActiveWork",
+            "kind": "TabPage",
+            "pattern": "SectionTabbedList",
             "patternVersion": "1.1",
+            "caption": "@MyLabels:ActiveWork",
+            "autoDeclaration": true,
+            "otherProperties": { "FastTabExpanded": "Yes" },
             "controls": [
               {
-                "name": "ActiveWorkTab",
+                "name": "ActiveWorkTabs",
                 "kind": "Tab",
-                "style": "FastTabs",
+                "style": "VerticalTabs",
+                "heightMode": "Manual",
+                "otherProperties": { "Height": "500", "ArrangeMethod": "Vertical" },
                 "controls": [
                   {
-                    "name": "PendingTab",
+                    "name": "PendingTabPage",
                     "kind": "TabPage",
                     "caption": "@MyLabels:Pending",
-                    "controls": []
+                    "controls": [
+                      {
+                        "name": "PendingList",
+                        "kind": "Container",
+                        "widthMode": "SizeToAvailable",
+                        "heightMode": "SizeToAvailable",
+                        "formControlExtension": {
+                          "name": "FormPartControl",
+                          "extensionProperties": [
+                            { "name": "targetName", "type": "String", "value": "MyPendingListPartMenuItem" },
+                            { "name": "parmRunMode", "type": "Enum", "value": "Local", "otherProperties": { "TypeName": "FormPartControlRunMode" } },
+                            { "name": "autoRefreshInterval", "type": "Int32", "value": "0" }
+                          ],
+                          "extensionComponents": [ { "name": "dataLinks", "kind": "Composite" } ]
+                        }
+                      }
+                    ]
                   }
                 ]
               }
             ]
           },
           {
-            "_doc": "Section Related Links: hyperlinks to related forms via Menu Function Buttons. See dynamics-xpp:xpp-form-subpatterns 'Section Related Links' for the precise button shape (Style=Link, ButtonDisplay=TextOnly, FormControlExtension i:nil, omit MenuItemType for Display).",
-            "name": "SetupAndConfiguration",
-            "kind": "Group",
-            "pattern": "WorkspaceLinks",
+            "_doc": "Section Related Links: Groups (one per link column, each with a caption) of MenuFunctionButtons with Style=Link + ButtonDisplay=TextOnly. Omit menuItemType for Display items (see dynamics-xpp:xpp-form-subpatterns).",
+            "name": "RelatedLinks",
+            "kind": "TabPage",
+            "pattern": "SectionRelatedLinks",
             "patternVersion": "1.1",
+            "caption": "@MyLabels:Links",
+            "otherProperties": { "FastTabExpanded": "Yes", "ColumnsMode": "Fill" },
             "controls": [
               {
-                "name": "ParametersLink",
-                "kind": "MenuFunctionButton",
-                "menuItemName": "MyAreaParameters",
-                "style": "Link",
-                "otherProperties": {"ButtonDisplay": "TextOnly"}
+                "name": "SetupLinksGroup",
+                "kind": "Group",
+                "caption": "@MyLabels:Setup",
+                "controls": [
+                  {
+                    "name": "ParametersLink",
+                    "kind": "MenuFunctionButton",
+                    "menuItemName": "MyAreaParameters",
+                    "style": "Link",
+                    "text": "@MyLabels:Parameters",
+                    "otherProperties": { "ButtonDisplay": "TextOnly" }
+                  }
+                ]
               }
             ]
           }
         ]
       }
     ]
+  },
+  "sourceCode": {
+    "declaration": "[Form]\npublic class MyOperationalWorkspace extends FormRun\n{\n}"
   }
 }
