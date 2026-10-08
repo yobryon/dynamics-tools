@@ -62,12 +62,34 @@ internal static class StrictToolArguments
     /// <summary>Null when the arguments are acceptable; otherwise the error payload.</summary>
     internal static object? Validate(string? toolName, IDictionary<string, JsonElement>? args)
     {
-        if (string.IsNullOrEmpty(toolName) || args == null || args.Count == 0) return null;
+        if (string.IsNullOrEmpty(toolName)) return null;
         if (!Tools.TryGetValue(toolName, out var method)) return null;
+        args ??= new Dictionary<string, JsonElement>();
 
         var parameters = method.GetParameters()
             .Where(p => !IsInjected(p.ParameterType))
             .ToDictionary(p => p.Name!, p => p, StringComparer.OrdinalIgnoreCase);
+
+        // A REQUIRED argument left out used to fail inside the SDK's binding
+        // and surface as the contentless "An error occurred invoking" --
+        // indistinguishable from a server fault (xpp_get_object_methods
+        // without `model` was reported exactly that way). Name it.
+        var missing = parameters.Values
+            .Where(p => !p.HasDefaultValue && !args.Keys.Contains(p.Name!, StringComparer.OrdinalIgnoreCase))
+            .Select(p => p.Name!)
+            .ToList();
+        if (missing.Count > 0)
+        {
+            return new
+            {
+                error = "missing_argument",
+                tool = toolName,
+                missingArguments = missing,
+                requiredArguments = parameters.Values.Where(p => !p.HasDefaultValue).Select(p => p.Name!).ToArray(),
+                optionalArguments = parameters.Values.Where(p => p.HasDefaultValue).Select(p => p.Name!).ToArray(),
+                message = $"'{toolName}' requires {string.Join(", ", missing.Select(m => $"'{m}'"))}. Nothing was done.",
+            };
+        }
 
         var unknown = args.Keys.Where(k => !k.StartsWith('_') && !parameters.ContainsKey(k)).ToList();
         if (unknown.Count > 0)

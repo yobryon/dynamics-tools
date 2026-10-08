@@ -7,6 +7,25 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
+## [Unreleased]
+
+### Fixed
+
+- **Missing required arguments are named.** A tool call that omits a
+  required argument now returns `missing_argument` with the required and
+  optional lists, instead of the SDK's contentless "An error occurred
+  invoking".
+- **`xpp_get_object_methods` / `xpp_get_method_source` no longer require
+  `model`.** It is resolved from the index; the tools ask for it only when
+  the same name exists in more than one model, and a wrong `axType` kind
+  returns `not_found` with guidance.
+- **`xpp_search_code` auto-quotes code fragments.** A query FTS5 rejects
+  (`fieldNum(CustTable, AccountNum)`, `a, b`) is re-run as a phrase and the
+  response says so in `note`; if even that fails the error explains the
+  remedy.
+- **Language skill:** `str2con` converts all-digit segments to int64 by
+  default, so `conPeek(...) == '1'` is silently never true.
+
 ## [0.4.1] - 2026-10-08
 
 ### Fixed

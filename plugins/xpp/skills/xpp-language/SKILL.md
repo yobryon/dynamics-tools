@@ -507,6 +507,14 @@ the agent not to stop after step 1.
   link's `name`) returns `unknown_argument` / `unknown_property` with the
   valid names, and nothing is written. Keys starting with `_` (the
   examples' `_doc`) are ignored.
+- **`str2con` turns all-digit segments into int64 by default.** Its
+  signature is `str2con(str _value, str _sep = ',', boolean
+  _convertNumericToInt64 = true)`. Split a token key such as
+  `event|owned|1|0` and `conPeek(parts, 3) == '1'` is NEVER true: the
+  segment came back as int64, and `int64 == str` compiles, raises nothing,
+  and is false. For string keys pass `false` as the third argument, or
+  compare through `any2str(conPeek(...))`. BP is clean and nothing fails
+  at runtime; the predicate just never applies.
 - **X++ is case-insensitive** for identifiers. `next getsalesid()` and
   `next getSalesId()` are the same call. Cosmetic typos in CoC method
   calls compile fine; don't waste effort "fixing" them.

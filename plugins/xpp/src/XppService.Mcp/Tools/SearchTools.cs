@@ -134,26 +134,40 @@ public sealed class SearchTools
         [Description("Maximum results. Default 50.")] int limit = 50,
         CancellationToken ct = default)
     {
+        string? note = null;
         try
         {
-            var request = new CodeSearchRequest { Query = query, Limit = limit };
-
-            var hits = new List<object>();
-            using var call = _conn.Client.SearchCode(request);
-            while (await call.ResponseStream.MoveNext(ct))
+            List<object> hits;
+            try
             {
-                var h = call.ResponseStream.Current;
-                hits.Add(new
+                hits = await RunCodeSearchAsync(query, limit, ct).ConfigureAwait(false);
+            }
+            catch (global::Grpc.Core.RpcException rx) when (IsFtsSyntaxError(rx) && !LooksQuoted(query))
+            {
+                // Agents search for code fragments as written: `fieldNum(X, Y)`,
+                // `a.b()`, `x, y`. FTS5 reads the punctuation as operators and
+                // errors. A phrase query tokenizes the punctuation away and
+                // matches the same adjacent tokens, so retry quoted and say so.
+                var quoted = "\"" + query.Replace("\"", "\"\"") + "\"";
+                try
                 {
-                    name = h.Object.Name,
-                    axType = h.Object.AxType,
-                    model = h.Object.Model,
-                    methodName = h.MethodName,
-                    snippet = h.Snippet
-                });
+                    hits = await RunCodeSearchAsync(quoted, limit, ct).ConfigureAwait(false);
+                    note = $"the query contains FTS5 syntax characters, so it was run as the phrase {quoted} (punctuation is ignored, tokens must be adjacent). Quote it yourself to silence this note, or search a bare identifier.";
+                }
+                catch (global::Grpc.Core.RpcException rx2) when (IsFtsSyntaxError(rx2))
+                {
+                    return JsonSerializer.Serialize(new
+                    {
+                        error = "bad_fts_query",
+                        tool = "xpp_search_code",
+                        message = rx2.Status.Detail,
+                        hint = "FTS5 syntax: wrap a code fragment in double quotes to search it as a phrase (\"fieldNum(CustTable, AccountNum)\"), or search one bare identifier and narrow. Operators are AND / OR / NOT / NEAR; '*' is a prefix.",
+                    });
+                }
             }
 
             var payload = new Dictionary<string, object?> { ["count"] = hits.Count, ["results"] = hits };
+            if (note != null) payload["note"] = note;
             if (hits.Count == 0)
             {
                 var hint = CodeSearchZeroHint(query);
@@ -162,6 +176,35 @@ public sealed class SearchTools
             return JsonSerializer.Serialize(payload);
         }
         catch (Exception ex) { return ToolError.From("xpp_search_code", ex); }
+    }
+
+    private async Task<List<object>> RunCodeSearchAsync(string query, int limit, CancellationToken ct)
+    {
+        var hits = new List<object>();
+        using var call = _conn.Client.SearchCode(new CodeSearchRequest { Query = query, Limit = limit });
+        while (await call.ResponseStream.MoveNext(ct).ConfigureAwait(false))
+        {
+            var h = call.ResponseStream.Current;
+            hits.Add(new
+            {
+                name = h.Object.Name,
+                axType = h.Object.AxType,
+                model = h.Object.Model,
+                methodName = h.MethodName,
+                snippet = h.Snippet
+            });
+        }
+        return hits;
+    }
+
+    private static bool IsFtsSyntaxError(global::Grpc.Core.RpcException rx)
+        => rx.StatusCode == global::Grpc.Core.StatusCode.InvalidArgument
+           && rx.Status.Detail.Contains("fts5", StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksQuoted(string q)
+    {
+        var t = q.Trim();
+        return t.Length >= 2 && t[0] == '"' && t[^1] == '"';
     }
 
     // A count:0 from xpp_search_code is load-bearing during recon — agents act
