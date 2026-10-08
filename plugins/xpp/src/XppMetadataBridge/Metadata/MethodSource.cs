@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace XppMetadataBridge.Metadata
@@ -38,7 +39,7 @@ namespace XppMetadataBridge.Metadata
         /// mapper merges it with on-disk content, so pre-existing methods are
         /// never touched (a 20-line append must not become a 400-line diff).
         /// </summary>
-        public static void NormalizeAuthoredSources(Newtonsoft.Json.Linq.JToken? node)
+        public static void NormalizeAuthoredSources(Newtonsoft.Json.Linq.JToken? node, HashSet<string>? unchanged = null)
         {
             switch (node)
             {
@@ -50,15 +51,50 @@ namespace XppMetadataBridge.Metadata
                             foreach (var m in methods)
                             {
                                 if (m is Newtonsoft.Json.Linq.JObject mo && mo["source"] is Newtonsoft.Json.Linq.JToken s && s.Type == Newtonsoft.Json.Linq.JTokenType.String)
-                                    mo["source"] = NormalizeIndent((string)s!);
-                                NormalizeAuthoredSources(m);
+                                {
+                                    var src = (string)s!;
+                                    if (unchanged == null || !unchanged.Contains(src)) mo["source"] = NormalizeIndent(src);
+                                }
+                                NormalizeAuthoredSources(m, unchanged);
                             }
                         }
-                        else NormalizeAuthoredSources(p.Value);
+                        else NormalizeAuthoredSources(p.Value, unchanged);
                     }
                     break;
                 case Newtonsoft.Json.Linq.JArray a:
-                    foreach (var item in a) NormalizeAuthoredSources(item);
+                    foreach (var item in a) NormalizeAuthoredSources(item, unchanged);
+                    break;
+            }
+        }
+
+        /// <summary>Every method source text in a domain JSON (any "methods"
+        /// array at any depth), for the "did this request change it" check.</summary>
+        public static HashSet<string> CollectSources(Newtonsoft.Json.Linq.JToken? node)
+        {
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            Collect(node, set);
+            return set;
+        }
+
+        private static void Collect(Newtonsoft.Json.Linq.JToken? node, HashSet<string> set)
+        {
+            switch (node)
+            {
+                case Newtonsoft.Json.Linq.JObject o:
+                    foreach (var p in o.Properties())
+                    {
+                        if (string.Equals(p.Name, "methods", StringComparison.OrdinalIgnoreCase) && p.Value is Newtonsoft.Json.Linq.JArray methods)
+                            foreach (var m in methods)
+                            {
+                                if (m is Newtonsoft.Json.Linq.JObject mo && mo["source"] is Newtonsoft.Json.Linq.JToken s && s.Type == Newtonsoft.Json.Linq.JTokenType.String)
+                                    set.Add((string)s!);
+                                Collect(m, set);
+                            }
+                        else Collect(p.Value, set);
+                    }
+                    break;
+                case Newtonsoft.Json.Linq.JArray a:
+                    foreach (var item in a) Collect(item, set);
                     break;
             }
         }

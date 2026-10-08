@@ -90,14 +90,36 @@ public sealed class BestPracticeTools
         var scopeNormalized = (scope ?? "changeset").Trim().ToLowerInvariant();
         var verbosityNormalized = (verbosity ?? "default").Trim().ToLowerInvariant();
         if (verbosityNormalized is not ("default" or "full"))
-            throw new InvalidOperationException($"unknown verbosity '{verbosity}' (use \"default\" or \"full\")");
+            return JsonSerializer.Serialize(new
+            {
+                error = "invalid_argument",
+                argument = "verbosity",
+                value = verbosity,
+                validValues = new[] { "default", "full" },
+                message = $"verbosity '{verbosity}' is not valid; use \"default\" or \"full\". No check was run.",
+            });
+        if (scopeNormalized is not ("changeset" or "project" or "explicit"))
+            return JsonSerializer.Serialize(new
+            {
+                error = "invalid_argument",
+                argument = "scope",
+                value = scope,
+                validValues = new[] { "changeset", "project", "explicit" },
+                message = $"scope '{scope}' is not valid. No check was run.",
+            });
+        if (scopeNormalized == "explicit" && (objects == null || objects.Length == 0))
+            return JsonSerializer.Serialize(new
+            {
+                error = "invalid_argument",
+                argument = "objects",
+                message = "scope=explicit requires a non-empty objects array. No check was run.",
+            });
 
         var elements = scopeNormalized switch
         {
             "changeset" => ResolveChangesetScope(),
             "project" => ResolveProjectScope(),
-            "explicit" => ResolveExplicitScope(objects),
-            _ => throw new InvalidOperationException($"unknown scope '{scope}'")
+            _ => ResolveExplicitScope(objects),
         };
 
         if (elements.Count == 0)

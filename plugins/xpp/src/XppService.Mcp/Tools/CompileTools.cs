@@ -87,7 +87,14 @@ public sealed class CompileTools
         }
         var verbosityNormalized = (verbosity ?? "default").Trim().ToLowerInvariant();
         if (verbosityNormalized is not ("default" or "full"))
-            throw new InvalidOperationException($"unknown verbosity '{verbosity}' (use \"default\" or \"full\")");
+            return JsonSerializer.Serialize(new
+            {
+                error = "invalid_argument",
+                argument = "verbosity",
+                value = verbosity,
+                validValues = new[] { "default", "full" },
+                message = $"verbosity '{verbosity}' is not valid; use \"default\" or \"full\". No build was started.",
+            });
 
         // Optional DBSyncInBuild toggle: set the rnrproj property before the
         // build so a sync rides along on a successful (re)build. We never sync

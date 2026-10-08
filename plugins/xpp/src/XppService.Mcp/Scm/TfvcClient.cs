@@ -276,24 +276,53 @@ public sealed class TfvcClient
         // Header / blank lines / server-path headers are skipped.
         var changes = new List<TfvcChange>();
         string? currentServerFolder = null;
+        // Column boundaries come from the dashed header line ("----- ------
+        // ------"): the Change column is exactly as wide as its longest value,
+        // so a six-letter "delete" fills it and is followed by ONE space before
+        // the local path. Splitting rows on 2+ spaces therefore dropped every
+        // pending delete (and any "edit, rename") -- the change most worth
+        // seeing before a check-in. Parse by position; fall back to a regex
+        // when no header was seen.
+        int changeCol = -1, pathCol = -1;
         foreach (var rawLine in stdout.Split('\n'))
         {
             var line = rawLine.TrimEnd('\r');
             if (string.IsNullOrWhiteSpace(line)) continue;
-            if (line.StartsWith("File name") || line.StartsWith("------")) continue;
+            if (line.StartsWith("File name")) continue;
+            if (line.StartsWith("------"))
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"^(-+)\s+(-+)\s+(-+)");
+                if (m.Success)
+                {
+                    changeCol = m.Groups[2].Index;
+                    pathCol = m.Groups[3].Index;
+                }
+                continue;
+            }
             if (line.StartsWith("$/"))
             {
                 currentServerFolder = line.Trim();
                 continue;
             }
-            // Row format is column-fixed (file column 0-49, change column 49-55,
-            // local-path column 56-end). Use a relaxed parse so width drift
-            // doesn't kill us — split on 2+ spaces.
-            var parts = System.Text.RegularExpressions.Regex.Split(line, @"\s{2,}");
-            if (parts.Length < 3) continue;
-            var file = parts[0].Trim();
-            var action = parts[1].Trim();
-            var localPath = parts[2].Trim();
+
+            string file, action, localPath;
+            if (changeCol > 0 && pathCol > changeCol && line.Length > pathCol)
+            {
+                file = line[..changeCol].Trim();
+                action = line[changeCol..pathCol].Trim();
+                localPath = line[pathCol..].Trim();
+            }
+            else
+            {
+                // No header (or a line shorter than the layout): change types are
+                // lowercase words, optionally comma-joined, followed by a path.
+                var m = System.Text.RegularExpressions.Regex.Match(line,
+                    @"^(?<file>\S.*?)\s{2,}(?<action>[a-z]+(?:,\s*[a-z]+)*)\s+(?<path>(?:[A-Za-z]:\\|\\\\|\$/).*)$");
+                if (!m.Success) continue;
+                file = m.Groups["file"].Value.Trim();
+                action = m.Groups["action"].Value.Trim();
+                localPath = m.Groups["path"].Value.Trim();
+            }
             if (string.IsNullOrEmpty(file) || string.IsNullOrEmpty(action) || string.IsNullOrEmpty(localPath)) continue;
             changes.Add(new TfvcChange(
                 Action: action,

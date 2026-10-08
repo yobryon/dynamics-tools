@@ -72,7 +72,12 @@ namespace XppMetadataBridge.Metadata.Domain
             // that patch by "emit current -> overlay -> rebuild" (forms) used to
             // push every pre-existing method through the normalizer too,
             // turning a one-method append into a whole-file re-indent diff.
-            MethodSource.NormalizeAuthoredSources(patch);
+            // ... and among those, only the ones that differ from what is on
+            // disk: patch-by-path sends a whole top-level branch (a class's
+            // entire methods array) as the patch, so "supplied" is not the
+            // same as "changed". A byte-identical source is left exactly as
+            // it was, whatever its indentation.
+            MethodSource.NormalizeAuthoredSources(patch, MethodSource.CollectSources(ReadToJson(current)));
             var updated = ApplyPatch(current, patch);
             var conformance = Conform(updated, patch, isPatch: true);
             var saveInfo = WriteOperations.ResolveModel(providers, model);
