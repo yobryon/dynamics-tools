@@ -7,6 +7,19 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
+## [Unreleased]
+
+### Added
+
+- **Workspace charts skill.** New `dynamics-xpp:xpp-workspace-charts`
+  covers chart tiles in the Summary section and the Section Stacked Chart
+  page, reverse-engineered from shipped workspaces: the `SysChart`
+  control's extension-component shape (data sets, measures, secondary
+  axes, chart types), the `HubPartChart` form part, the `FormPartControl`
+  host, data-population idioms, page-filter wiring, drill-through, and the
+  pitfalls Microsoft's own forms work around. Ships two typed examples
+  ready for `xpp_create_form` / `xpp_patch_by_path`.
+
 ## [0.3.1] - 2026-09-14
 
 ### Fixed

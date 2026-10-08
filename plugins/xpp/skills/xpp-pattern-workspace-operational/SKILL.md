@@ -266,13 +266,22 @@ columns.
 
 ---
 
-## Composite components
+## Charts: chart tiles and the chart section
 
-Workspaces lean heavily on **composite extension components**
-(`AxFormControlExtensionComponentComposite`). These are reusable
-mini-controls assembled from smaller parts — charts, KPI displays,
-filter strips. The example shows the verbose structure for
-authoring one.
+A chart is never a control on the workspace itself. It lives in its own
+`HubPartChart` form part, and the workspace hosts that part through a
+`FormPartControl` whose `targetName` is the part's **Display menu item**:
+
+- on the `SectionTiles` page it renders as a **chart tile** among the count
+  tiles (no `AxTile` is involved);
+- on a `SectionStackedChart` page (between the tabbed list and the related
+  links; one or two charts) it renders as a full-width **chart section**.
+
+The chart control (`SysChart`, a Container with an extension) and its data
+sets / measures / drill-through, the data-population idioms, and how the page
+filter reaches a chart are all in `dynamics-xpp:xpp-workspace-charts`. Build
+the part (and its menu item) BEFORE the workspace references it, exactly as
+for list parts.
 
 ---
 
@@ -313,7 +322,8 @@ sub-pattern by name:
 - **Section Tiles** — tile grid with counts/KPIs.
 - **Section Tabbed List** — tabbed list section (multiple list
   views in the same area, only one shown at a time).
-- **Section Stacked Chart** — up to two charts in a section.
+- **Section Stacked Chart** — up to two charts in a section
+  (`dynamics-xpp:xpp-workspace-charts`).
 - **Section PowerBI** — embedded Power BI section.
 - **Section Related Links** — links section.
 
@@ -423,6 +433,7 @@ mass-update step.
 ## See also
 
 - `dynamics-xpp:xpp-form` — envelope, namespace rules.
+- `dynamics-xpp:xpp-workspace-charts` — chart tiles and the chart section.
 - `dynamics-xpp:xpp-pattern-list-page` — what tiles typically launch into.
 - `dynamics-xpp:xpp-pattern-details-master`, `dynamics-xpp:xpp-pattern-details-transaction` —
   what list-fact-boxes ultimately drill into.

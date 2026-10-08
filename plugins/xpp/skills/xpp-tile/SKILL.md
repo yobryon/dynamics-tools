@@ -23,6 +23,10 @@ Tiles are decoupled into two parts:
 You typically need both: the AxTile defines WHAT, the form's
 tile button defines WHERE.
 
+**Charts are not tiles.** A "chart tile" in a workspace Summary section
+is a `FormPartControl` hosting a `HubPartChart` form part; no AxTile is
+involved. See `dynamics-xpp:xpp-workspace-charts`.
+
 ---
 
 ## Read this skill when

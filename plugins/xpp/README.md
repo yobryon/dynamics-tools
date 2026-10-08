@@ -42,7 +42,7 @@ plugin lets Claude work alongside you in the same codebase:
   the changes are already in your project — no manual "add to
   project" step.
 
-The skill fleet is **38 skills today**:
+The skill fleet is **39 skills today**:
 
 | Family | Skills |
 |---|---|
@@ -53,6 +53,7 @@ The skill fleet is **38 skills today**:
 | Live debugging | `dynamics-xpp:xpp-debug` |
 | Per-form-pattern (10) | `dynamics-xpp:xpp-pattern-simple-list`, `dynamics-xpp:xpp-pattern-simple-list-details`, `dynamics-xpp:xpp-pattern-details-master`, `dynamics-xpp:xpp-pattern-details-transaction`, `dynamics-xpp:xpp-pattern-list-page`, `dynamics-xpp:xpp-pattern-task`, `dynamics-xpp:xpp-pattern-task-parent-child`, `dynamics-xpp:xpp-pattern-wizard`, `dynamics-xpp:xpp-pattern-table-of-contents`, `dynamics-xpp:xpp-pattern-workspace-operational` |
 | Sub-patterns catalog | `dynamics-xpp:xpp-form-subpatterns` |
+| Workspace charts | `dynamics-xpp:xpp-workspace-charts` |
 | Wireframing | `dynamics-xpp:xpp-wireframe` |
 | Source control | `dynamics-xpp:xpp-scm-tfvc` |
 | Reporting friction | `dynamics-xpp:xpp-feedback` |

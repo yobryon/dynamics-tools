@@ -217,8 +217,10 @@ These apply to tab pages inside an `WorkspaceOperational` form.
 ### Section Tiles
 
 A set of tiles/charts in a workspace section. Tiles launch into
-related forms via menu items; charts are defined via Form Part
-Controls.
+related forms via menu items (`TileButtonControl` buttons backed by an
+`AxTile`); charts are `FormPartControl` containers targeting a
+`HubPartChart` part's Display menu item, interleaved with the tiles in
+any order -- see `dynamics-xpp:xpp-workspace-charts`.
 
 - MS reference: `SalesOrderProcessingWorkspace`.
 - **Required property VALUES the compiler enforces but `patternConformance`
@@ -278,7 +280,12 @@ etc. in one tabbed-list section).
 
 ### Section Stacked Chart
 
-Up to two charts in an Operational Workspace section.
+Up to two charts in an Operational Workspace section: a `TabPage` with
+`pattern=SectionStackedChart` 1.1, a caption, and one or two
+`FormPartControl` containers (nothing else) each targeting a
+`HubPartChart` part's Display menu item. Placed after the Section Tabbed
+List page and before Section PowerBI / Related Links. Authoring the part,
+the `SysChart` control and its data: `dynamics-xpp:xpp-workspace-charts`.
 
 ### Section PowerBI
 

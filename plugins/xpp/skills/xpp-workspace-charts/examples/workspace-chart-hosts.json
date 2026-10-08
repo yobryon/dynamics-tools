@@ -1,0 +1,68 @@
+{
+  "_doc": [
+    "The two ways a workspace hosts a chart part. Both are FormPartControl containers; only the parent tab page differs.",
+    "Shapes taken from RetailITWorkspace (chart tile in the SectionTiles page) and CustomerCollectionManagerWorkspace / CostAnalysisWorkspace (SectionStackedChart page).",
+    "targetName is the AxMenuItemDisplay whose Object is the chart part form - never the form name.",
+    "Splice with xpp_patch_by_path op=append: chartTile into '/design/controls/<FastTabs>/controls/<SummaryTabPage>/controls'; stackedChartPage into '/design/controls/<FastTabs>/controls' (after the SectionTabbedList page, before SectionPowerBI / SectionRelatedLinks)."
+  ],
+  "chartTile": {
+    "_doc": "Append to the SectionTiles tab page's controls, alongside the TileButtonControl buttons. The part's chart control carries ExtendedStyle chart_2x2 so it flows in the tile grid.",
+    "name": "MyOrdersByDayChartTile",
+    "kind": "Container",
+    "formControlExtension": {
+      "name": "FormPartControl",
+      "extensionProperties": [
+        { "name": "targetName", "type": "String", "value": "MyOrdersByDayChartMenuItem" },
+        { "name": "parmRunMode", "type": "Enum", "value": "Local", "otherProperties": { "TypeName": "FormPartControlRunMode" } },
+        { "name": "autoRefreshInterval", "type": "Int32", "value": "86400" }
+      ],
+      "extensionComponents": [
+        { "name": "dataLinks", "kind": "Composite" }
+      ]
+    }
+  },
+  "stackedChartPage": {
+    "_doc": "A whole tab page: Section Stacked Chart, one or two FormPartControls only. Caption is required by BP. autoDeclaration=true on a host is only needed when the workspace X++ calls <host>.getPartFormRun().",
+    "name": "ChartsSection",
+    "kind": "TabPage",
+    "pattern": "SectionStackedChart",
+    "patternVersion": "1.1",
+    "caption": "@MyLabels:OrdersTrend",
+    "otherProperties": { "FastTabExpanded": "Yes", "ColumnsMode": "Fill" },
+    "controls": [
+      {
+        "name": "MyOrdersByDayChartHost",
+        "kind": "Container",
+        "autoDeclaration": true,
+        "heightMode": "SizeToAvailable",
+        "formControlExtension": {
+          "name": "FormPartControl",
+          "extensionProperties": [
+            { "name": "targetName", "type": "String", "value": "MyOrdersByDayChartMenuItem" },
+            { "name": "parmRunMode", "type": "Enum", "value": "Local", "otherProperties": { "TypeName": "FormPartControlRunMode" } },
+            { "name": "autoRefreshInterval", "type": "Int32", "value": "0" }
+          ],
+          "extensionComponents": [
+            { "name": "dataLinks", "kind": "Composite" }
+          ]
+        }
+      },
+      {
+        "name": "MyOrdersByValueChartHost",
+        "kind": "Container",
+        "heightMode": "SizeToAvailable",
+        "formControlExtension": {
+          "name": "FormPartControl",
+          "extensionProperties": [
+            { "name": "targetName", "type": "String", "value": "MyOrdersByValueChartMenuItem" },
+            { "name": "parmRunMode", "type": "Enum", "value": "Local", "otherProperties": { "TypeName": "FormPartControlRunMode" } },
+            { "name": "autoRefreshInterval", "type": "Int32", "value": "0" }
+          ],
+          "extensionComponents": [
+            { "name": "dataLinks", "kind": "Composite" }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "_doc": [
+    "Typed CreateFormRequest for a HubPartChart form part: one data set over a temp table, two Column measures, no secondary axis.",
+    "Shape taken from the shipped RetailITDownloadSessionsChart (read it with xpp_get_form for the full property list).",
+    "Before this: create the temp table MyOrdersByDayTmp (TableType=TempDB; fields OrderDate (date), OpenCount (int), ClosedCount (int)).",
+    "After this: create AxMenuItemDisplay MyOrdersByDayChartMenuItem with object=MyOrdersByDayChart, add it to the workspace privilege, then host it (see workspace-chart-hosts.json).",
+    "Every enum-typed extension property needs otherProperties.TypeName; booleans are Enum/boolean with True/False."
+  ],
+  "name": "MyOrdersByDayChart",
+  "dataSources": [
+    {
+      "name": "MyOrdersByDayTmp",
+      "kind": "Root",
+      "table": "MyOrdersByDayTmp",
+      "fields": [
+        { "dataField": "OrderDate" },
+        { "dataField": "OpenCount" },
+        { "dataField": "ClosedCount" }
+      ]
+    }
+  ],
+  "design": {
+    "caption": "@MyLabels:OrdersByDay",
+    "pattern": "HubPartChart",
+    "patternVersion": "1.0",
+    "style": "FormPart",
+    "viewEditMode": "View",
+    "controls": [
+      {
+        "_doc": "The chart: an ordinary Container whose extension is SysChart. chart_2x2 = tile-sized (Summary section); use chart_4x4 / chart_2x4 for a Section Stacked Chart page.",
+        "name": "OrdersByDayChart",
+        "kind": "Container",
+        "widthMode": "SizeToAvailable",
+        "heightMode": "SizeToAvailable",
+        "otherProperties": { "ExtendedStyle": "chart_2x2" },
+        "formControlExtension": {
+          "name": "SysChart",
+          "extensionProperties": [
+            { "name": "parmText", "type": "String", "value": "@MyLabels:OrdersByDay" },
+            { "name": "parmLegendEnabled", "type": "Enum", "value": "True", "otherProperties": { "TypeName": "boolean" } },
+            { "name": "parmLegendAlignment", "type": "Enum", "value": "Auto", "otherProperties": { "TypeName": "SysChartHorizontalAlignment" } },
+            { "name": "parmLegendPosition", "type": "Enum", "value": "Auto", "otherProperties": { "TypeName": "SysChartVerticalAlignment" } },
+            { "name": "parmTitleAlignment", "type": "Enum", "value": "Auto", "otherProperties": { "TypeName": "SysChartHorizontalAlignment" } },
+            { "name": "parmTitlePosition", "type": "Enum", "value": "Auto", "otherProperties": { "TypeName": "SysChartVerticalAlignment" } },
+            { "name": "parmYAxisVisible", "type": "Enum", "value": "True", "otherProperties": { "TypeName": "boolean" } },
+            { "name": "parmToolbarEnabled", "type": "Enum", "value": "False", "otherProperties": { "TypeName": "boolean" } },
+            { "name": "parmInteractionsDisabled", "type": "Enum", "value": "False", "otherProperties": { "TypeName": "boolean" } },
+            { "name": "parmPadMargin", "type": "Int32", "value": "0" }
+          ],
+          "extensionComponents": [
+            {
+              "name": "parmDataSets",
+              "kind": "Composite",
+              "components": [
+                {
+                  "name": "ByDay",
+                  "kind": "Leaf",
+                  "componentType": "SysBuildChartDataSet",
+                  "extensionProperties": [
+                    { "name": "parmDataSource", "type": "String", "value": "MyOrdersByDayTmp" },
+                    { "name": "parmCategoryField", "type": "String", "value": "OrderDate" },
+                    { "name": "parmGroupBy", "type": "String" }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "parmMeasures",
+              "kind": "Composite",
+              "components": [
+                {
+                  "name": "Open",
+                  "kind": "Leaf",
+                  "componentType": "SysBuildChartMeasure",
+                  "extensionProperties": [
+                    { "name": "parmChartType", "type": "Enum", "value": "Column", "otherProperties": { "TypeName": "SysChartType" } },
+                    { "name": "parmTitle", "type": "String", "value": "@MyLabels:Open" },
+                    { "name": "parmDataLabels", "type": "Enum", "value": "None", "otherProperties": { "TypeName": "SysChartDataLabels" } },
+                    { "name": "parmDataSet", "type": "String", "value": "ByDay" },
+                    { "name": "parmMeasureField", "type": "String", "value": "OpenCount" },
+                    { "name": "parmUseSecondaryYAxis", "type": "Enum", "value": "False", "otherProperties": { "TypeName": "boolean" } },
+                    { "name": "parmClickMenuItemType", "type": "Enum", "otherProperties": { "TypeName": "MenuItemType" } },
+                    { "name": "parmClickMenuItemName", "type": "ExtendedDataType", "otherProperties": { "TypeName": "MenuItemName" } }
+                  ]
+                },
+                {
+                  "name": "Closed",
+                  "kind": "Leaf",
+                  "componentType": "SysBuildChartMeasure",
+                  "extensionProperties": [
+                    { "name": "parmChartType", "type": "Enum", "value": "Column", "otherProperties": { "TypeName": "SysChartType" } },
+                    { "name": "parmTitle", "type": "String", "value": "@MyLabels:Closed" },
+                    { "name": "parmDataLabels", "type": "Enum", "value": "None", "otherProperties": { "TypeName": "SysChartDataLabels" } },
+                    { "name": "parmDataSet", "type": "String", "value": "ByDay" },
+                    { "name": "parmMeasureField", "type": "String", "value": "ClosedCount" },
+                    { "name": "parmUseSecondaryYAxis", "type": "Enum", "value": "False", "otherProperties": { "TypeName": "boolean" } },
+                    { "name": "parmClickMenuItemType", "type": "Enum", "otherProperties": { "TypeName": "MenuItemType" } },
+                    { "name": "parmClickMenuItemName", "type": "ExtendedDataType", "otherProperties": { "TypeName": "MenuItemName" } }
+                  ]
+                }
+              ]
+            },
+            {
+              "_doc": "Keep this composite even when empty. To put a measure on a second axis: add a SysBuildChartYAxis leaf here (parmTitle, parmVisible) and set the measure's parmUseSecondaryYAxis=True + parmSecondaryYAxisName=<that leaf's name>.",
+              "name": "parmSecondaryYAxes",
+              "kind": "Composite",
+              "components": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "sourceCode": {
+    "declaration": "[Form]\npublic class MyOrdersByDayChart extends FormRun\n{\n}",
+    "methods": [
+      {
+        "name": "init",
+        "source": "    public void init()\n    {\n        super();\n\n        this.populateChartData();\n    }\n"
+      },
+      {
+        "name": "populateChartData",
+        "source": "    /// <summary>\n    /// Fills the temp buffer the chart binds to. Re-call after a filter change, then executeQuery().\n    /// </summary>\n    private void populateChartData()\n    {\n        MyOrdersByDayTmp tmp;\n        MyOrderTable      orders;\n        date              fromDate = DateTimeUtil::date(DateTimeUtil::addDays(DateTimeUtil::utcNow(), -7));\n\n        while select OrderDate, count(RecId) from orders\n            group by OrderDate\n            where orders.OrderDate >= fromDate\n        {\n            tmp.OrderDate = orders.OrderDate;\n            tmp.OpenCount = MyOrderTable::countByStatus(orders.OrderDate, MyOrderStatus::Open);\n            tmp.ClosedCount = orders.RecId - tmp.OpenCount;\n            tmp.insert();\n        }\n\n        // A chart with a single row can fail in the client; pad with a zero row when sparse.\n        if (!tmp)\n        {\n            tmp.OrderDate = fromDate;\n            tmp.insert();\n        }\n\n        MyOrdersByDayTmp_ds.setTmpData(tmp);\n        MyOrdersByDayTmp_ds.executeQuery();\n    }\n"
+      }
+    ]
+  }
+}
