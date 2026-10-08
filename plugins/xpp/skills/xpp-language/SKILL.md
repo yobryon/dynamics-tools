@@ -208,6 +208,15 @@ and exact semantics; this section teaches the **patterns of use**.
   (SQLite FTS5). Phrase queries, boolean operators, prefix matches,
   proximity all supported. Faster than reading objects to look for code.
   Use when you know a literal token/identifier.
+- **`axdb-sql` (a separate MCP server the plugin registers: Methodify.SqlMcp
+  against the local AxDB)** — read the database next to the metadata:
+  `read_data(sql, limit?)` for any SELECT, `list_tables(pattern?)` /
+  `list_views(pattern?)` with a SQL LIKE pattern (ALWAYS pass one on an F&O
+  database: the catalog has ~8k tables and an unfiltered list overflows the
+  tool result), `describe_table(name)` for columns. Parameter names are
+  exactly these; an unknown or missing argument is refused with the valid
+  names (0.4.0+). When in doubt, `read_data` against `sys.tables` /
+  `sys.columns` is always exact.
 - `xpp_search_semantic` — meaning-based (vector) search over method
   bodies or label text. Finds conceptually-related code even when the
   wording differs ("reverse a posted invoice" → cancellation/credit-note
