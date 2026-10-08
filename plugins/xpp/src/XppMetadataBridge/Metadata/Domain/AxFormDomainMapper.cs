@@ -186,7 +186,7 @@ namespace XppMetadataBridge.Metadata.Domain
                 {
                     if (string.Equals((string?)m["name"], "classDeclaration", StringComparison.Ordinal)) continue;
                     var am = new AxMethod { Name = (string?)m["name"] ?? string.Empty };
-                    if (m["source"] is JToken ms && ms.Type == JTokenType.String) am.Source = MethodSource.NormalizeIndent((string)ms!);
+                    if (m["source"] is JToken ms && ms.Type == JTokenType.String) am.Source = (string)ms!;
                     addM?.Invoke(ax.Methods, new object[] { am });
                 }
 
@@ -221,7 +221,7 @@ namespace XppMetadataBridge.Metadata.Domain
             foreach (var m in methods.OfType<JObject>())
             {
                 var am = new AxMethod { Name = (string?)m["name"] ?? string.Empty };
-                if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = MethodSource.NormalizeIndent((string)s!);
+                if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = (string)s!;
                 add?.Invoke(methodColl, new object[] { am });
             }
         }
@@ -261,12 +261,31 @@ namespace XppMetadataBridge.Metadata.Domain
             dsSource.TryGetValue(name, out var srcDs);
             var fieldSource = IndexByName(srcDs?["fields"] as JArray);
             var fieldsColl = ds.GetType().GetProperty("Fields")?.GetValue(ds);
-            if (fieldsColl != null && json["fields"] is JArray fields)
+            if (fieldsColl != null)
             {
                 MetaclassJson.AllowDuplicates(fieldsColl);
                 var add = AddMethod(fieldsColl, "AxFormDataSourceField");
-                foreach (var fj in fields.OfType<JObject>())
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (json["fields"] is JArray fields)
+                    foreach (var fj in fields.OfType<JObject>())
+                    {
+                        add?.Invoke(fieldsColl, new[] { BuildField(fj, fieldSource) });
+                        seen.Add((string?)fj["dataField"] ?? string.Empty);
+                    }
+
+                // A field-level override (sourceCode.dataSources[].fields[].methods)
+                // on a field that has NO metadata entry -- the normal case: plain
+                // fields get an AxFormDataSourceField only when something is set
+                // on them. Previously these methods were silently dropped
+                // because the merge only ran over the metadata list. Create the
+                // entry so the override lands (field-level modified() is the
+                // canonical place for it).
+                foreach (var kv in fieldSource)
+                {
+                    if (seen.Contains(kv.Key) || kv.Value["methods"] is not JArray) continue;
+                    var fj = new JObject { ["dataField"] = kv.Key };
                     add?.Invoke(fieldsColl, new[] { BuildField(fj, fieldSource) });
+                }
             }
 
             // Per-DS methods.

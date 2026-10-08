@@ -52,6 +52,7 @@ namespace XppMetadataBridge.Metadata.Domain
         // ===================================================================
         public DomainWriteResult Create(JObject json, MetadataProviderHost providers, string model)
         {
+            MethodSource.NormalizeAuthoredSources(json);
             var ax = BuildFromJson(json);
             var conformance = Conform(ax, json, isPatch: false);
             var saveInfo = WriteOperations.ResolveModel(providers, model);
@@ -67,6 +68,11 @@ namespace XppMetadataBridge.Metadata.Domain
                 ?? throw new JsonRpcException(JsonRpcErrorCodes.ObjectNotFound,
                     $"{AxType} '{name}' not found in the writable workspace.");
             ValidateRead(current);
+            // Only the methods THIS request authored get re-indented. Mappers
+            // that patch by "emit current -> overlay -> rebuild" (forms) used to
+            // push every pre-existing method through the normalizer too,
+            // turning a one-method append into a whole-file re-indent diff.
+            MethodSource.NormalizeAuthoredSources(patch);
             var updated = ApplyPatch(current, patch);
             var conformance = Conform(updated, patch, isPatch: true);
             var saveInfo = WriteOperations.ResolveModel(providers, model);

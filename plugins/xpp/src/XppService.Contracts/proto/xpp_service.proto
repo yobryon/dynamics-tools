@@ -897,6 +897,11 @@ message CompileRequest {
   // When true, pass /Rebuild instead of /Build. Forces fresh XML output
   // even when nothing changed; slower (full BPC pass).
   bool rebuild = 5;
+  // After a SUCCESSFUL build, recycle the AOSService app pool unless the
+  // build already did. Metadata-only changes (menu items, menus, security,
+  // tiles) are served from the AOS metadata cache until a recycle, so a
+  // browser check can "verify" a deleted item or miss a new one.
+  bool recycle_app_pool = 6;
 }
 
 message CompileResponse {
@@ -937,6 +942,8 @@ message CompileResponse {
   // response surfaces something unexpected; this field exploits that
   // window. Empty when no diagnostic hits a known skill-linkage rule.
   repeated string relevant_skills = 10;
+  // Set when recycle_app_pool was requested and the recycle failed.
+  string app_pool_recycle_error = 11;
 }
 
 message CompileTiming {

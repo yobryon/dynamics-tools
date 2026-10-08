@@ -296,7 +296,18 @@ joins).
 
 The `links` collection exists only for the advanced case of pinning a
 specific relation when a child joins its parent on more than one — each entry
-names a *relation*, not a field pair. Standard master/detail never needs it.
+names a *relation*, not a field pair, and the property is `name` (the
+relation name) plus an optional `behavior`; there is no `relation` key.
+Standard master/detail never needs it.
+
+**Data-source FIELD-level overrides** (`modified()`, `validate()`,
+`lookup()` on one field, the canonical place for field-driven UI logic)
+live under `sourceCode.dataSources[].fields[].methods`, keyed by the
+field's `name` (= its DataField). The metadata side
+(`dataSources[].fields[]`) carries only properties (`allowEdit`,
+`visible`, ...). A field needs NO metadata entry for its methods to land;
+the mapper creates the entry. Putting `methods` on the metadata side is
+reported as drift and dropped.
 
 ---
 

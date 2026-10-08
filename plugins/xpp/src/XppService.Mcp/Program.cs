@@ -66,11 +66,15 @@ builder.Services.AddHostedService<Xpp.Service.Mcp.Grpc.EagerConnectionPrimer>();
 // WithResourcesFromAssembly does the same for [McpServerResourceType]
 // classes - this is how the xpp://schema/{type} family gets advertised on
 // the resources/list and resources/templates/list endpoints.
+// Refuse arguments a tool would otherwise silently ignore (unknown argument
+// names, unknown properties anywhere inside a domain request). See
+// StrictToolArguments for why a dropped key is worse than an error.
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
     .WithToolsFromAssembly()
-    .WithResourcesFromAssembly();
+    .WithResourcesFromAssembly()
+    .WithRequestFilters(f => f.AddCallToolFilter(Xpp.Service.Mcp.Tools.StrictToolArguments.Wrap));
 
 await builder.Build().RunAsync();
 return;

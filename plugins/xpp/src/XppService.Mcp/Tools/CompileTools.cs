@@ -58,6 +58,7 @@ public sealed class CompileTools
         "slnPath (see dynamics-xpp:xpp-project).")]
     public async Task<string> CompileProject(
         [Description("When true, run /Rebuild instead of /Build. Forces fresh diagnostics.")] bool rebuild = false,
+        [Description("When true, recycle the AOSService app pool after a SUCCESSFUL build (unless the build already did). Needed before verifying METADATA-only changes in the browser: menu items, menus, security objects, tiles and labels are served from the AOS metadata cache until a recycle, so a stale cache can show a deleted menu item or hide a new one. X++ code changes do not need it. Costs the AOS a cold start (~1-2 min before the first page).")] bool recycleAppPool = false,
         [Description("\"default\" | \"full\". Default summarises non-error diagnostics; full returns every diagnostic.")] string? verbosity = null,
         [Description("Optional. When set, toggles the rnrproj's DBSyncInBuild property BEFORE building (true=enable, false=disable), then leaves it set. The database sync still runs only as a product of a SUCCESSFUL (re)build per that property — there is no standalone sync. Pair with rebuild=true to materialize a schema change. Omit to leave the project's setting untouched.")] bool? syncDb = null,
         CancellationToken ct = default)
@@ -113,6 +114,7 @@ public sealed class CompileTools
                 RnrprojPath = resolved.RnprojPath,
                 Module = resolved.Module,
                 Rebuild = rebuild,
+                RecycleAppPool = recycleAppPool,
                 Configuration = "Debug|Any CPU"
             }, cancellationToken: ct);
         }
@@ -186,6 +188,20 @@ public sealed class CompileTools
         // diagnostic matched a skill-linkage rule.
         var relevantSkills = rsp.RelevantSkills?.ToArray() ?? Array.Empty<string>();
 
+        // Two build-pipeline signals that look authoritative and are not.
+        var hints = new List<string>();
+        if (rsp.Success && errorDiags.Count > 0)
+            hints.Add("Metadata validation runs BEFORE the X++ compile. A diagnostic against an object this build introduced " +
+                      "(a menu item pointing at a brand-new class, a new entry point) can be validated against the NOT-YET-COMPILED class " +
+                      "and report a precise, wrong defect (MethodMustBeStatic / InvalidMethodSignature on a correct main(Args)). " +
+                      "Before changing code to satisfy such a diagnostic, run the build once more; if it clears, it was ordering, not your code.");
+        if (!rsp.AppPoolRecycled)
+            hints.Add("The app pool was NOT recycled. X++ changes are live now, but metadata-only changes (menu items, menus, " +
+                      "security objects, tiles, labels) are served from the AOS metadata cache until a recycle: the browser can still show a " +
+                      "deleted menu item or miss a new one. Pass recycleAppPool=true (or restart the AOSService app pool) before verifying those.");
+        if (!string.IsNullOrEmpty(rsp.AppPoolRecycleError))
+            hints.Add("App pool recycle was requested but failed: " + rsp.AppPoolRecycleError);
+
         return new
         {
             success = rsp.Success,
@@ -230,6 +246,7 @@ public sealed class CompileTools
             suppressed = Group(suppressed),
             rawOutput,
             relevantSkills,
+            hints = hints.Count > 0 ? hints.ToArray() : null,
             verbosity = fullDetail ? "full" : "default"
         };
     }

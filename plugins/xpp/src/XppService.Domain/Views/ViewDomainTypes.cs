@@ -251,10 +251,10 @@ public sealed record ViewField
     [Description("EDT typing the field. For Kind=Computed* the EDT determines the SQL type; for Bound it's typically inherited from the underlying field.")]
     public string? ExtendedDataType { get; init; }
 
-    [Description("X++ method name that returns the computed value. Required when Kind=Computed*. Convention: lowercase. Method must exist on the view class.")]
+    [Description("RARELY the right field. Emits <Method>, which the kernel resolves against the SysComputedColumn CLASS, not your view -- a method you wrote on the view fails to bind (MethodDoesNotExistOnClass ... 'SysComputedColumn'). For a computed column use viewMethod instead.")]
     public string? Method { get; init; }
 
-    [Description("Indicates the method is rendered via a view-level helper (rarely used).")]
+    [Description("The static X++ method ON THE VIEW (in its sourceCode) that returns the computed column's SQL expression. THIS is the normal choice for Kind=Computed*; emits <ViewMethod>. Convention: lowercase name, e.g. computeFullName.")]
     public string? ViewMethod { get; init; }
 
     [Description("If true, the computed field is virtual — not persisted even on staged views.")]

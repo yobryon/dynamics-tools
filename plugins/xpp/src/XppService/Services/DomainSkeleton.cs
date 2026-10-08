@@ -451,6 +451,19 @@ internal static class DomainSkeleton
             switch (Classify(child))
             {
                 case Shape.Singleton:
+                case Shape.LeafGroup:
+                    // A node reached through a singleton KEY rather than a
+                    // collection can still be a real, named thing: an
+                    // AxFormExtension wraps each added control in an
+                    // auto-named envelope whose `formControl` singleton IS the
+                    // control. Not matching here made such controls invisible
+                    // to find -- and a zero from a search reads as "absent".
+                    if (child is JsonObject so)
+                    {
+                        var sid = IdentityOf(so, -1);
+                        if (!sid.StartsWith("#", StringComparison.Ordinal) && Matches(so, sid, filter))
+                            hits.Add(MatchEntry(so, segPath, sid));
+                    }
                     Walk(child, segPath, filter, hits);
                     break;
                 case Shape.Collection:

@@ -142,6 +142,11 @@ public class CONShipmentPendingQuery extends QueryRun
 Three top-level pieces:
 
 1. **`<SourceCode>`** — always present. Carries the
+   `classDeclaration` -- every shipped query has one, and a query without
+   it does not fail compilation, it CRASHES xppc (`KeyNotFoundException`
+   in `QueryMetadataReader`). `xpp_create_query` emits the standard
+   `[Query] public class <Name> extends QueryRun {}` whenever you omit
+   `sourceCode`, and keeps it on patch. Carries the
    `classDeclaration` (and any other X++ methods for the
    QueryRun class). For a Simple query, the body is just
    `public class <Name> extends QueryRun {}` — boilerplate.

@@ -64,10 +64,12 @@ public sealed class ViewDomainTools
         catch (RpcException rx) { return BridgeFailure("AxView", "create_view", rx); }
 
         var sideEffects = await RecordPostWriteAsync("AxView", resp.Name, createdHere: true, ct).ConfigureAwait(false);
+        var createWarnings = sideEffects.Warnings.ToList();
+        createWarnings.AddRange(ComputedBindingWarnings(request.Fields));
         return WriteResponseSerializer.Serialize(resp, "create",
             addedToProject: sideEffects.AddedToProject,
             changesetUpdated: sideEffects.ChangesetUpdated,
-            sideEffectWarnings: sideEffects.Warnings);
+            sideEffectWarnings: createWarnings);
     }
 
     [McpServerTool(Name = "xpp_get_view"), Description(
@@ -138,10 +140,32 @@ public sealed class ViewDomainTools
         var sideEffects = await RecordPostWriteAsync("AxView", resp.Name, createdHere: false, ct).ConfigureAwait(false);
         var warnings = sideEffects.Warnings.ToList();
         if (scmPreWarning != null) warnings.Insert(0, $"scm: {scmPreWarning}");
+        warnings.AddRange(ComputedBindingWarnings(patch.Fields));
         return WriteResponseSerializer.Serialize(resp, "patch",
             addedToProject: null,
             changesetUpdated: sideEffects.ChangesetUpdated,
             sideEffectWarnings: warnings);
+    }
+
+    /// <summary>
+    /// A computed column bound through `method` resolves against the
+    /// SysComputedColumn class, not the view, and fails at compile time with
+    /// a message that names a class the author never wrote. The schema used
+    /// to point authors at exactly that field. Say so at write time.
+    /// </summary>
+    private static IEnumerable<string> ComputedBindingWarnings(IEnumerable<ViewField>? fields)
+    {
+        if (fields == null) yield break;
+        foreach (var f in fields)
+        {
+            if (f.Kind == ViewFieldKind.Bound) continue;
+            if (!string.IsNullOrEmpty(f.Method) && string.IsNullOrEmpty(f.ViewMethod))
+                yield return $"field '{f.Name}': computed columns bind through viewMethod (a static method on the view), not method " +
+                             "(resolved against SysComputedColumn). As written this will fail to compile with MethodDoesNotExistOnClass; " +
+                             "patch the field with viewMethod and drop method.";
+            if (f.Kind != ViewFieldKind.Bound && string.IsNullOrEmpty(f.Method) && string.IsNullOrEmpty(f.ViewMethod))
+                yield return $"field '{f.Name}': Kind={f.Kind} but neither viewMethod nor method is set; the column has no implementation.";
+        }
     }
 
     // ---- shared helpers ---------------------------------------------------

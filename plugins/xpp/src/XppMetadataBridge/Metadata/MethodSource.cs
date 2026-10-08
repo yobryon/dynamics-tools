@@ -31,6 +31,38 @@ namespace XppMetadataBridge.Metadata
     {
         private const int TabWidth = 4;
 
+        /// <summary>
+        /// Re-indent every method body the CALLER supplied in a create/patch
+        /// JSON: any object inside an array named "methods" (at any depth)
+        /// whose "source" is a string. Run once on the request, before the
+        /// mapper merges it with on-disk content, so pre-existing methods are
+        /// never touched (a 20-line append must not become a 400-line diff).
+        /// </summary>
+        public static void NormalizeAuthoredSources(Newtonsoft.Json.Linq.JToken? node)
+        {
+            switch (node)
+            {
+                case Newtonsoft.Json.Linq.JObject o:
+                    foreach (var p in o.Properties())
+                    {
+                        if (string.Equals(p.Name, "methods", StringComparison.OrdinalIgnoreCase) && p.Value is Newtonsoft.Json.Linq.JArray methods)
+                        {
+                            foreach (var m in methods)
+                            {
+                                if (m is Newtonsoft.Json.Linq.JObject mo && mo["source"] is Newtonsoft.Json.Linq.JToken s && s.Type == Newtonsoft.Json.Linq.JTokenType.String)
+                                    mo["source"] = NormalizeIndent((string)s!);
+                                NormalizeAuthoredSources(m);
+                            }
+                        }
+                        else NormalizeAuthoredSources(p.Value);
+                    }
+                    break;
+                case Newtonsoft.Json.Linq.JArray a:
+                    foreach (var item in a) NormalizeAuthoredSources(item);
+                    break;
+            }
+        }
+
         /// <summary>Re-indent <paramref name="source"/> so its least-indented
         /// non-blank line sits at <paramref name="targetColumn"/> (default 4,
         /// the class-body level for a method). Returns the input unchanged when

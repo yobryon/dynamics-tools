@@ -9,6 +9,53 @@ releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Unknown argument and property names are refused instead of ignored.**
+  Every tool call is now checked against the tool's parameters and, for
+  domain requests, against the record types at every nesting depth. A
+  guessed key (`menuItemType` for `kind`, `relation` for a form link's
+  `name`, `id` for `labelId`) returns `unknown_argument` /
+  `unknown_property` naming the offender and the valid names, and nothing
+  is written. Previously the key was dropped silently and the value fell
+  back to its default; the failure then surfaced at runtime in the
+  browser. Keys starting with `_` (the examples' `_doc`) are ignored.
+- **`xpp_create_query` now emits the default `classDeclaration`** its
+  description always promised. A query without one does not fail
+  compilation, it crashes the X++ compiler.
+- **Computed view fields:** the schema pointed authors at `method`
+  ("required") and away from `viewMethod` ("rarely used"). The reality is
+  the reverse; both descriptions now say which class each resolves
+  against, and a write-time warning fires when a computed field binds
+  through `method`.
+- **Form data-source field-level methods** (`modified()` on a field under
+  `sourceCode.dataSources[].fields[].methods`) were dropped when the field
+  had no metadata entry. The mapper now creates the entry.
+- **`xpp_find_in_object` on an `AxFormExtension`** never matched the real
+  control nested under each `controls[].formControl` envelope, so a zero
+  read as "absent". Identifiable singleton nodes are matched now.
+- **False drift reports:** the typed drift detector compared collection
+  items by position while the mapper re-sorts data controls into design
+  order, so an append accused unrelated controls of losing methods they
+  still had. Items are now matched by identity (name / dataField).
+- **Whole-file re-indentation on form patch:** every pre-existing method
+  used to pass through the indentation normalizer, turning a one-method
+  append into a 400-line diff. Only methods the request supplied are
+  normalized now.
+- **Drift is failure-shaped:** a write with non-empty `drift` now leads
+  with `incomplete: true` and a warning, instead of `created: true` with a
+  note at the end.
+- **`xpp_create_menuitem`** requires `kind` and refuses Display/Output items
+  that target a class.
+- **`xpp_compile`** gains `recycleAppPool` (recycle the AOSService app pool
+  after a successful build) and two hints: validation diagnostics on a
+  successful build may be ordering artifacts (metadata validation runs
+  before the X++ compile), and metadata-only changes are not live in the
+  AOS until the app pool recycles.
+- **Workspace example** (`xpp-pattern-workspace-operational`) rewritten
+  from a live read of a shipped workspace; the old one used pattern names
+  that exist nowhere on disk.
+
 ### Added
 
 - **Workspace charts skill.** New `dynamics-xpp:xpp-workspace-charts`

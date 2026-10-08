@@ -314,6 +314,23 @@ public sealed partial class PingGrpcService
         // load the right docs at the moment they're maximally receptive.
         AddRelevantSkills(response);
 
+
+        // Optional recycle after a successful build. devenv's own pipeline
+        // recycles only when the project asks it to; metadata-only changes
+        // are invisible to the running AOS until something does.
+        if (request.RecycleAppPool && response.Success && !response.AppPoolRecycled)
+        {
+            var rsw = Stopwatch.StartNew();
+            var err = await RecycleAppPoolAsync(context.CancellationToken).ConfigureAwait(false);
+            rsw.Stop();
+            if (err == null)
+            {
+                response.AppPoolRecycled = true;
+                response.Timing.AppPoolRecycleMs = rsw.ElapsedMilliseconds;
+            }
+            else response.AppPoolRecycleError = err;
+        }
+
         return response;
     }
 
@@ -490,6 +507,41 @@ public sealed partial class PingGrpcService
     // and fall back to vswhere when nothing matches. The exhaustive search
     // happens once per process — the result is cached for subsequent calls.
     private static string? _cachedDevenv;
+    private const string AosAppPoolName = "AOSService";
+
+    /// <summary>Recycle the AOS app pool through IIS's appcmd. Returns null on
+    /// success, else a one-line reason (appcmd missing, non-zero exit).</summary>
+    private static async Task<string?> RecycleAppPoolAsync(CancellationToken ct)
+    {
+        var appcmd = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "inetsrv", "appcmd.exe");
+        if (!File.Exists(appcmd)) return $"appcmd.exe not found at {appcmd} (is IIS installed on this box?)";
+        var psi = new ProcessStartInfo
+        {
+            FileName = appcmd,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        psi.ArgumentList.Add("recycle");
+        psi.ArgumentList.Add("apppool");
+        psi.ArgumentList.Add("/apppool.name:" + AosAppPoolName);
+        try
+        {
+            using var p = Process.Start(psi);
+            if (p == null) return "appcmd could not be started";
+            var outTask = p.StandardOutput.ReadToEndAsync(ct);
+            var errTask = p.StandardError.ReadToEndAsync(ct);
+            await p.WaitForExitAsync(ct).ConfigureAwait(false);
+            var stdout = await outTask.ConfigureAwait(false);
+            var stderr = await errTask.ConfigureAwait(false);
+            if (p.ExitCode != 0)
+                return $"appcmd exit {p.ExitCode}: {(string.IsNullOrWhiteSpace(stderr) ? stdout : stderr).Trim()} (the service must run elevated to recycle an app pool)";
+            return null;
+        }
+        catch (Exception ex) { return ex.Message; }
+    }
+
     private static string? LocateDevenv()
     {
         if (_cachedDevenv != null && File.Exists(_cachedDevenv)) return _cachedDevenv;

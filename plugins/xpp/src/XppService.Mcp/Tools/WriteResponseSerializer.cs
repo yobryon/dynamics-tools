@@ -68,7 +68,22 @@ internal static class WriteResponseSerializer
 
         payload["sideEffectWarnings"] = DriftReporting.MergedWarnings(warnings, resp.Drift);
         if (resp.Drift.Count > 0)
+        {
             payload["drift"] = DriftReporting.AsStructuredArray(resp.Drift);
+            // Non-empty drift means the edit did NOT fully land. An agent
+            // skimming for created/updated=true walks straight past a trailing
+            // warning, so lead with a failure-shaped flag and put the verdict
+            // first in the payload.
+            payload["incomplete"] = true;
+            var ordered = new Dictionary<string, object?>
+            {
+                ["incomplete"] = true,
+                ["warning"] = $"{resp.Drift.Count} requested propert{(resp.Drift.Count == 1 ? "y" : "ies")} did not survive the write (see drift). " +
+                              "The object was written WITHOUT them. Read it back before relying on it.",
+            };
+            foreach (var kv in payload) if (!ordered.ContainsKey(kv.Key)) ordered[kv.Key] = kv.Value;
+            payload = ordered;
+        }
 
         return JsonSerializer.Serialize(payload);
     }

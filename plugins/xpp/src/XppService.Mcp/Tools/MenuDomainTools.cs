@@ -145,6 +145,25 @@ public sealed class MenuDomainTools
         var (resolved, gate) = ResolveOrGate();
         if (gate != null) return gate;
 
+        // Kind decides the on-disk AxType. A defaulted Kind once produced an
+        // AxMenuItemDisplay whose Object was a class -- it compiles, BP is
+        // clean, and the browser says "No object specified on menu item".
+        if (request.Kind == null)
+            return JsonSerializer.Serialize(new
+            {
+                error = "kind_required",
+                message = "kind is required: Display (opens an AxForm), Output (runs an AxReport) or Action (invokes a class's static main(Args)). Nothing was written.",
+            });
+        if (request.Kind != MenuItemKind.Action
+            && string.Equals(request.ObjectType, "Class", StringComparison.OrdinalIgnoreCase))
+            return JsonSerializer.Serialize(new
+            {
+                error = "invalid_kind_for_object",
+                kind = request.Kind.ToString(),
+                objectType = request.ObjectType,
+                message = $"a {request.Kind} menu item cannot target a Class; a class with static main(Args) needs kind=Action. Nothing was written.",
+            });
+
         var axType = "AxMenuItem" + request.Kind;
         var domainJson = DomainJson.Serialize(request);
         WriteObjectResponse resp;

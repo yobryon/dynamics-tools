@@ -125,18 +125,29 @@ public static class DriftDetector
                     EmitIfMeaningful(original, path, sink);
                     return;
                 }
-                // Element-wise walk. We compare positionally — mappers
-                // preserve order for the collections we care about
-                // (Controls, Fields, Methods, etc.). If the round-trip
-                // is shorter than the request, the missing tail elements
-                // get flagged as drops.
+                // Element-wise walk. Items that carry an identity (name /
+                // dataField / field / mapField) are matched BY IDENTITY: the
+                // mapper is free to re-order a collection (an appended data
+                // control lands in design order, not at the end), and a
+                // positional compare then accuses every shifted neighbour of
+                // losing content it still has -- a false alarm on a production
+                // form costs the author a baseline diff to disprove. Items
+                // without an identity fall back to position.
                 var origLen = original.GetArrayLength();
                 var rtLen = roundTripped.GetArrayLength();
                 for (int i = 0; i < origLen; i++)
                 {
                     var origItem = original[i];
                     var itemPath = $"{path}[{i}]";
-                    if (i < rtLen)
+                    var ident = IdentityOf(origItem);
+                    if (ident != null)
+                    {
+                        if (TryFindByIdentity(roundTripped, ident, out var match))
+                            Walk(origItem, match, itemPath, sink);
+                        else
+                            EmitIfMeaningful(origItem, itemPath, sink);
+                    }
+                    else if (i < rtLen)
                     {
                         Walk(origItem, roundTripped[i], itemPath, sink);
                     }
@@ -204,6 +215,34 @@ public static class DriftDetector
                 sink.Add(new DriftEntry(path, LeafToString(value)));
                 break;
         }
+    }
+
+    private static readonly string[] IdentityKeys = { "name", "dataField", "field", "mapField" };
+
+    /// <summary>The identity of a collection member (its name / dataField /
+    /// field / mapField), or null when it carries none.</summary>
+    private static string? IdentityOf(JsonElement item)
+    {
+        if (item.ValueKind != JsonValueKind.Object) return null;
+        foreach (var key in IdentityKeys)
+            if (TryGetPropertyCaseInsensitive(item, key, out var v) && v.ValueKind == JsonValueKind.String)
+            {
+                var s = v.GetString();
+                if (!string.IsNullOrEmpty(s)) return s;
+            }
+        return null;
+    }
+
+    private static bool TryFindByIdentity(JsonElement array, string identity, out JsonElement match)
+    {
+        match = default;
+        if (array.ValueKind != JsonValueKind.Array) return false;
+        foreach (var item in array.EnumerateArray())
+        {
+            var id = IdentityOf(item);
+            if (id != null && string.Equals(id, identity, StringComparison.OrdinalIgnoreCase)) { match = item; return true; }
+        }
+        return false;
     }
 
     private static string LeafToString(JsonElement leaf)

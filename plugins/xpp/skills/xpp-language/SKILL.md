@@ -489,6 +489,24 @@ the agent not to stop after step 1.
 
 ## Things that bite (cross-cutting)
 
+- **A tool's report is a claim; the object is the fact.** `created: true`
+  with an empty warning list means the write succeeded, not that every
+  property you sent landed. Read `sideEffectWarnings` / `drift` /
+  `incomplete` on every write, and when something is implausible (a search
+  returns zero where the business says there must be a match, a diagnostic
+  contradicts code you wrote a minute ago) go to the object with
+  `xpp_get_*` before reasoning further.
+- **Before authoring a type with polymorphic or look-alike properties, read
+  a shipped artifact of that exact kind and diff against it.** A schema
+  description can be wrong; a Microsoft-shipped object that compiles cannot.
+  This is also the fastest recovery when a build crashes rather than errors:
+  `xpp_get_<type>` on yours and on a known-good one, then compare.
+- **Unknown argument or property names are refused, not ignored.** Every
+  tool call is checked against its schema and the domain records at every
+  nesting depth; a guessed key (`menuItemType` for `kind`, `relation` for a
+  link's `name`) returns `unknown_argument` / `unknown_property` with the
+  valid names, and nothing is written. Keys starting with `_` (the
+  examples' `_doc`) are ignored.
 - **X++ is case-insensitive** for identifiers. `next getsalesid()` and
   `next getSalesId()` are the same call. Cosmetic typos in CoC method
   calls compile fine; don't waste effort "fixing" them.

@@ -42,7 +42,7 @@ namespace XppMetadataBridge.Metadata.Domain
             var simple = (AxQuerySimple)current; // ValidateRead already gated this
             ApplyQueryScalars(simple, patch);
             if (patch["advanced"] is JObject adv) AssignAll(simple, adv);
-            if (patch["sourceCode"] is JObject sc) ApplySourceCode(simple, sc);
+            if (patch["sourceCode"] is JObject sc) { ApplySourceCode(simple, sc); EnsureClassDeclaration(simple); }
             if (patch["dataSources"] is JArray dss)
             {
                 simple.DataSources.Clear();
@@ -65,12 +65,32 @@ namespace XppMetadataBridge.Metadata.Domain
             ApplyQueryScalars(ax, json);
             if (json["advanced"] is JObject adv) AssignAll(ax, adv);
             if (json["sourceCode"] is JObject sc) ApplySourceCode(ax, sc);
+            EnsureClassDeclaration(ax);
             if (json["dataSources"] is JArray dss)
             {
                 MetaclassJson.AllowDuplicates(ax.DataSources);
                 foreach (var d in dss.OfType<JObject>()) ax.DataSources.Add(BuildDataSource(d));
             }
             return ax;
+        }
+
+        /// <summary>
+        /// Every shipped AxQuery carries a classDeclaration method (3,462 of
+        /// 3,462 in ApplicationSuite). Without it the X++ compiler does not
+        /// report an error -- it crashes (KeyNotFoundException in
+        /// QueryMetadataReader). The tool description promises the default;
+        /// this is where the promise is kept. Shape matches MS's own text.
+        /// </summary>
+        internal static void EnsureClassDeclaration(AxQuerySimple ax)
+        {
+            foreach (var m in ax.Methods)
+                if (m is AxMethod am && string.Equals(am.Name, "classDeclaration", StringComparison.Ordinal)) return;
+            MetaclassJson.AllowDuplicates(ax.Methods);
+            ax.Methods.Add(new AxMethod
+            {
+                Name = "classDeclaration",
+                Source = "\n    [Query]\n    public class " + ax.Name + " extends QueryRun\n    {\n    }\n\n",
+            });
         }
 
         private static void ApplyQueryScalars(AxQuerySimple ax, JObject json)
@@ -97,7 +117,7 @@ namespace XppMetadataBridge.Metadata.Domain
                 foreach (var m in methods.OfType<JObject>())
                 {
                     var am = new AxMethod { Name = (string?)m["name"] ?? string.Empty };
-                    if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = MethodSource.NormalizeIndent((string)s!);
+                    if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = (string)s!;
                     ax.Methods.Add(am);
                 }
             }
@@ -278,7 +298,7 @@ namespace XppMetadataBridge.Metadata.Domain
                 foreach (var m in ms.OfType<JObject>())
                 {
                     var am = new AxMethod { Name = (string?)m["name"] ?? string.Empty };
-                    if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = MethodSource.NormalizeIndent((string)s!);
+                    if (m["source"] is JToken s && s.Type == JTokenType.String) am.Source = (string)s!;
                     q.Methods.Add(am);
                 }
             }

@@ -209,8 +209,8 @@ public sealed record CreateMenuItemRequest
     [Description("Menu-item AOT name. PascalCase. By convention the name ends with the kind, e.g. CustTableDisplay / CustTableEditAction.")]
     public string Name { get; init; } = string.Empty;
 
-    [Description("Menu-item kind. Display opens an AxForm. Output runs an SSRS-style AxReport. Action invokes an AxClass main() method.")]
-    public MenuItemKind Kind { get; init; }
+    [Description("REQUIRED. Menu-item kind: Display opens an AxForm. Output runs an SSRS-style AxReport. Action invokes an AxClass main() method. Decides the on-disk AxType (AxMenuItemDisplay / Output / Action).")]
+    public MenuItemKind? Kind { get; init; }
 
     [Description("Target object name. For Display: AxForm. For Output: AxReport. For Action: AxClass (with a static main(Args)).")]
     public string? Object { get; init; }
