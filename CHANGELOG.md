@@ -7,7 +7,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
-## [Unreleased]
+## [0.4.1] - 2026-10-08
 
 ### Fixed
 
@@ -66,6 +66,14 @@ releases.
   host, data-population idioms, page-filter wiring, drill-through, and the
   pitfalls Microsoft's own forms work around. Ships two typed examples
   ready for `xpp_create_form` / `xpp_patch_by_path`.
+
+## [0.4.0] - 2026-10-08
+
+### Added
+
+- **AxDB SQL access.** The plugin's `.mcp.json` now also registers
+  Methodify.SqlMcp as a standard MCP server connected to the local AxDB,
+  so an agent can query the database next to the metadata tools.
 
 ## [0.3.1] - 2026-09-14
 
