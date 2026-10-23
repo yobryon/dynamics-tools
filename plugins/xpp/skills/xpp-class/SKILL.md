@@ -605,3 +605,4 @@ The mapper preserves method bodies as opaque text — no X++
 parsing on either the write or read path. The `name` of each
 method must match the method identifier inside `source`; the
 mapper trusts the caller on that pairing.
+- `dynamics-xpp:xpp-data-contract`, `dynamics-xpp:xpp-business-event` — contract classes and event classes are ordinary AxClass objects with a prescribed shape.

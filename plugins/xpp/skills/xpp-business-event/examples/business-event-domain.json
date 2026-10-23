@@ -1,0 +1,97 @@
+{
+  "_doc": [
+    "Two xpp_create_class requests (contract first, then event) for a business event raised when a sales order invoice is posted. Shape follows the shipped SalesInvoicePostedBusinessEvent / ...Contract pair.",
+    "Before: add labels MyInvoicePostedBusinessEventName / MyInvoicePostedBusinessEventDescription to your label file (dynamics-xpp:xpp-labelfile). The attribute references them WITHOUT the @.",
+    "After: raise it. For a sales invoice that is a Chain-of-Command extension of the posting class (dynamics-xpp:xpp-extension); for your own document, the method that persists the fact, after super()/the write, inside the transaction.",
+    "Then compile, rebuild the business events catalog, activate the event for a legal entity and an endpoint, and perform the business action."
+  ],
+  "contract": {
+    "name": "MyInvoicePostedBusinessEventContract",
+    "sourceCode": {
+      "declaration": "/// <summary>\n/// Payload of MyInvoicePostedBusinessEvent.\n/// </summary>\n[DataContract]\npublic final class MyInvoicePostedBusinessEventContract extends BusinessEventsContract\n{\n    private CustInvoiceAccount invoiceAccount;\n    private CustInvoiceId invoiceId;\n    private SalesIdBase salesId;\n    private TransDate invoiceDate;\n    private AmountMST invoiceAmount;\n    private str invoiceType;\n    private LegalEntityDataAreaId legalEntity;\n}",
+      "methods": [
+        {
+          "name": "newFromCustInvoiceJour",
+          "source": "    public static MyInvoicePostedBusinessEventContract newFromCustInvoiceJour(CustInvoiceJour _custInvoiceJour)\n    {\n        var contract = new MyInvoicePostedBusinessEventContract();\n        contract.initialize(_custInvoiceJour);\n        return contract;\n    }\n"
+        },
+        {
+          "name": "initialize",
+          "source": "    /// <summary>\n    /// Protected so a Chain-of-Command extension can add fields with next initialize(...).\n    /// </summary>\n    protected void initialize(CustInvoiceJour _custInvoiceJour)\n    {\n        invoiceAccount = _custInvoiceJour.InvoiceAccount;\n        invoiceId = _custInvoiceJour.InvoiceId;\n        salesId = _custInvoiceJour.SalesId;\n        invoiceDate = _custInvoiceJour.InvoiceDate;\n        invoiceAmount = _custInvoiceJour.InvoiceAmountMST;\n        invoiceType = enum2Symbol(enumNum(SalesType), _custInvoiceJour.SalesType);\n        legalEntity = _custInvoiceJour.DataAreaId;\n        this.parmMajorVersion(1);\n        this.parmMinorVersion(0);\n    }\n"
+        },
+        {
+          "name": "new",
+          "source": "    private void new()\n    {\n    }\n"
+        },
+        {
+          "name": "parmInvoiceAccount",
+          "source": "    [DataMember('InvoiceAccount'), BusinessEventsDataMember(\"@AccountsReceivable:InvoiceAccount\")]\n    public CustInvoiceAccount parmInvoiceAccount(CustInvoiceAccount _invoiceAccount = invoiceAccount)\n    {\n        invoiceAccount = _invoiceAccount;\n        return invoiceAccount;\n    }\n"
+        },
+        {
+          "name": "parmInvoiceId",
+          "source": "    [DataMember('InvoiceId'), BusinessEventsDataMember(\"@SYS12128\")]\n    public CustInvoiceId parmInvoiceId(CustInvoiceId _invoiceId = invoiceId)\n    {\n        invoiceId = _invoiceId;\n        return invoiceId;\n    }\n"
+        },
+        {
+          "name": "parmSalesOrderId",
+          "source": "    [DataMember('SalesOrderId'), BusinessEventsDataMember(\"@SYS9694\")]\n    public SalesIdBase parmSalesOrderId(SalesIdBase _salesId = salesId)\n    {\n        salesId = _salesId;\n        return salesId;\n    }\n"
+        },
+        {
+          "name": "parmInvoiceDate",
+          "source": "    [DataMember('InvoiceDate'), BusinessEventsDataMember(\"@SYS24000\")]\n    public TransDate parmInvoiceDate(TransDate _invoiceDate = invoiceDate)\n    {\n        invoiceDate = _invoiceDate;\n        return invoiceDate;\n    }\n"
+        },
+        {
+          "name": "parmInvoiceAmount",
+          "source": "    [DataMember('InvoiceAmountInAccountingCurrency'), BusinessEventsDataMember(\"@SYS8042\")]\n    public AmountMST parmInvoiceAmount(AmountMST _invoiceAmount = invoiceAmount)\n    {\n        invoiceAmount = _invoiceAmount;\n        return invoiceAmount;\n    }\n"
+        },
+        {
+          "name": "parmInvoiceType",
+          "source": "    [DataMember('InvoiceType'), BusinessEventsDataMember(\"@SYS7984\")]\n    public str parmInvoiceType(str _invoiceType = invoiceType)\n    {\n        invoiceType = _invoiceType;\n        return invoiceType;\n    }\n"
+        },
+        {
+          "name": "parmLegalEntity",
+          "source": "    [DataMember('LegalEntity'), BusinessEventsDataMember(\"@SYS315135\")]\n    public LegalEntityDataAreaId parmLegalEntity(LegalEntityDataAreaId _legalEntity = legalEntity)\n    {\n        legalEntity = _legalEntity;\n        return legalEntity;\n    }\n"
+        }
+      ]
+    }
+  },
+  "event": {
+    "name": "MyInvoicePostedBusinessEvent",
+    "sourceCode": {
+      "declaration": "/// <summary>\n/// Raised when a sales order invoice has been posted.\n/// </summary>\n[BusinessEvents(classStr(MyInvoicePostedBusinessEventContract),\n    'MyLabels:MyInvoicePostedBusinessEventName',\n    'MyLabels:MyInvoicePostedBusinessEventDescription',\n    ModuleAxapta::SalesOrder)]\npublic final class MyInvoicePostedBusinessEvent extends BusinessEventsBase\n{\n    private CustInvoiceJour custInvoiceJour;\n}",
+      "methods": [
+        {
+          "name": "parmCustInvoiceJour",
+          "source": "    private CustInvoiceJour parmCustInvoiceJour(CustInvoiceJour _custInvoiceJour = custInvoiceJour)\n    {\n        custInvoiceJour = _custInvoiceJour;\n        return custInvoiceJour;\n    }\n"
+        },
+        {
+          "name": "newFromCustInvoiceJour",
+          "source": "    public static MyInvoicePostedBusinessEvent newFromCustInvoiceJour(CustInvoiceJour _custInvoiceJour)\n    {\n        MyInvoicePostedBusinessEvent businessEvent = new MyInvoicePostedBusinessEvent();\n        businessEvent.parmCustInvoiceJour(_custInvoiceJour);\n        return businessEvent;\n    }\n"
+        },
+        {
+          "name": "new",
+          "source": "    private void new()\n    {\n    }\n"
+        },
+        {
+          "name": "buildContract",
+          "source": "    [Wrappable(true), Replaceable(true)]\n    public BusinessEventsContract buildContract()\n    {\n        return MyInvoicePostedBusinessEventContract::newFromCustInvoiceJour(custInvoiceJour);\n    }\n"
+        },
+        {
+          "name": "getContextRecord",
+          "source": "    public Common getContextRecord()\n    {\n        return custInvoiceJour;\n    }\n"
+        }
+      ]
+    }
+  },
+  "raiseSite": {
+    "_doc": "Chain-of-Command on the posting class, so the event fires after the invoice journal is written and inside the posting transaction. Create via xpp_create_class; see dynamics-xpp:xpp-extension.",
+    "name": "MySalesInvoiceJournalPostBase_Extension",
+    "sourceCode": {
+      "declaration": "[ExtensionOf(classStr(SalesInvoiceJournalPostBase))]\nfinal class MySalesInvoiceJournalPostBase_Extension\n{\n}",
+      "methods": [
+        {
+          "name": "postJournalPost",
+          "source": "    protected void postJournalPost()\n    {\n        next postJournalPost();\n\n        CustInvoiceJour custInvoiceJour = this.parmCustInvoiceJour();\n        if (custInvoiceJour)\n        {\n            MyInvoicePostedBusinessEvent::newFromCustInvoiceJour(custInvoiceJour).send();\n        }\n    }\n"
+        }
+      ]
+    }
+  }
+}

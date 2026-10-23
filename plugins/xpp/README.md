@@ -42,14 +42,14 @@ plugin lets Claude work alongside you in the same codebase:
   the changes are already in your project — no manual "add to
   project" step.
 
-The skill fleet is **39 skills today**:
+The skill fleet is **41 skills today**:
 
 | Family | Skills |
 |---|---|
 | Onboarding | `dynamics-xpp:xpp-setup` (once per machine), `dynamics-xpp:xpp-project` (once per repo) |
 | Anchor + language | `dynamics-xpp:xpp-language`, `dynamics-xpp:xpp-data` |
 | Per-AOT-type | `dynamics-xpp:xpp-class`, `dynamics-xpp:xpp-table`, `dynamics-xpp:xpp-form`, `dynamics-xpp:xpp-edt`, `dynamics-xpp:xpp-enum`, `dynamics-xpp:xpp-labelfile`, `dynamics-xpp:xpp-extension`, `dynamics-xpp:xpp-query`, `dynamics-xpp:xpp-view`, `dynamics-xpp:xpp-dataentityview`, `dynamics-xpp:xpp-menu`, `dynamics-xpp:xpp-menuitem`, `dynamics-xpp:xpp-security`, `dynamics-xpp:xpp-service`, `dynamics-xpp:xpp-tile`, `dynamics-xpp:xpp-resource` |
-| Authoring topics | `dynamics-xpp:xpp-custom-control`, `dynamics-xpp:xpp-batch`, `dynamics-xpp:xpp-navigation` |
+| Authoring topics | `dynamics-xpp:xpp-custom-control`, `dynamics-xpp:xpp-batch`, `dynamics-xpp:xpp-navigation`, `dynamics-xpp:xpp-data-contract`, `dynamics-xpp:xpp-business-event` |
 | Live debugging | `dynamics-xpp:xpp-debug` |
 | Per-form-pattern (10) | `dynamics-xpp:xpp-pattern-simple-list`, `dynamics-xpp:xpp-pattern-simple-list-details`, `dynamics-xpp:xpp-pattern-details-master`, `dynamics-xpp:xpp-pattern-details-transaction`, `dynamics-xpp:xpp-pattern-list-page`, `dynamics-xpp:xpp-pattern-task`, `dynamics-xpp:xpp-pattern-task-parent-child`, `dynamics-xpp:xpp-pattern-wizard`, `dynamics-xpp:xpp-pattern-table-of-contents`, `dynamics-xpp:xpp-pattern-workspace-operational` |
 | Sub-patterns catalog | `dynamics-xpp:xpp-form-subpatterns` |

@@ -9,6 +9,18 @@ releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Business events and data contracts skills.** New
+  `dynamics-xpp:xpp-business-event` teaches the event class, its payload
+  contract, where to raise it, labels and categories, the catalog rebuild
+  and activation, versioning and the pitfalls read out of the framework
+  source and shipped events; it ships a typed example of the contract,
+  event and raise site. New `dynamics-xpp:xpp-data-contract` covers the
+  contract shape shared by SysOperation dialogs, business events, custom
+  services and JSON serialization, with every attribute that matters per
+  consumer.
+
 ### Fixed
 
 - **A rejected write can no longer destroy the object.** Microsoft's
