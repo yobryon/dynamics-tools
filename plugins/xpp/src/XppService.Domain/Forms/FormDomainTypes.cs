@@ -402,8 +402,26 @@ public sealed record FormControl
     [Description("ViewEditMode override on the control.")]
     public string? ViewEditMode { get; init; }
 
-    [Description("Static text content for Kind=StaticText.")]
+    [Description("Static text content for Kind=StaticText (and Button family). NOT the caption of an ActionPaneTab / Group / Tab / TabPage -- use caption there.")]
     public string? Text { get; init; }
+
+    [Description("Value-binding: a display/edit method on the data source or table that supplies the control's value when it is not bound to a field (e.g. 'titleFields', 'chRequesterName'). Pairs with dataSource.")]
+    public string? DataMethod { get; init; }
+
+    [Description("Value-binding: 'Yes' to cache the display method's result per record (the usual choice for grid columns).")]
+    public string? CacheDataMethod { get; init; }
+
+    [Description("Value-binding: EDT typing an UNBOUND control (filter fields, dialog inputs). Drives lookup, formatting and label.")]
+    public string? ExtendedDataType { get; init; }
+
+    [Description("Value-binding: base enum typing an unbound ComboBox / RadioButton.")]
+    public string? EnumType { get; init; }
+
+    [Description("Fixed width in pixels; meaningful only with widthMode=Manual.")]
+    public int? Width { get; init; }
+
+    [Description("Fixed height in pixels; meaningful only with heightMode=Manual.")]
+    public int? Height { get; init; }
 
     [Description("For Kind=Button / MenuFunctionButton / CommandButton: button command name (e.g. New, Delete, Save).")]
     public string? Command { get; init; }

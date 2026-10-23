@@ -146,7 +146,11 @@ public sealed class CompileTools
         {
             inBuild = _project.ReadDbSyncInBuildEffective(),
             toggledThisCall = dbSyncToggle,
-            note = "Database sync is performed by the build only when DBSyncInBuild is True AND the build succeeds; a failed or up-to-date build performs no sync.",
+            performed = rsp.DbSyncPerformed,
+            dbSyncMs = rsp.Timing?.DbSyncMs ?? 0,
+            note = rsp.DbSyncPerformed
+                ? "The database synchronization step ran in this build (fact from the build output)."
+                : "No database synchronization step ran in this build. It runs only when DBSyncInBuild is True AND the build compiled successfully.",
             warnings = dbSyncWarnings.Count > 0 ? dbSyncWarnings.ToArray() : null,
         };
 
@@ -280,6 +284,11 @@ public sealed class CompileTools
             hints.Add("App pool recycle was requested but failed: " + rsp.AppPoolRecycleError);
         if (rsp.OrderingRetry)
             hints.Add("orderingRetry: " + rsp.OrderingRetryNote);
+        if (errorDiags.Any(d => string.Equals(d.Moniker, "EnsureElementInCurrentModuleCompiled", StringComparison.OrdinalIgnoreCase)))
+            hints.Add("EnsureElementInCurrentModuleCompiled names committed model elements that have not been compiled since they last changed " +
+                      "(typically after a get-latest). They are not your changes and a PROJECT build cannot clear them; adding them to the project " +
+                      "one by one just reveals the next. The remedy is a full MODEL build in Visual Studio (Dynamics 365 > Build models, the model " +
+                      "that owns them), after which the project build is clean. Stop and tell the user; do not pull unrelated elements into the project.");
         if (!rsp.Success && !rsp.OrderingRetry && errorDiags.Count > 0
             && errorDiags.All(d => string.Equals(d.DiagnosticType, "MetadataProvider", StringComparison.OrdinalIgnoreCase)))
             hints.Add("Every error is a metadata-validation diagnostic. Validation runs BEFORE the X++ compile, so errors on objects " +

@@ -133,13 +133,29 @@ public sealed partial class PingGrpcService
             .Where(d => string.Equals(d.Severity, "Error", StringComparison.OrdinalIgnoreCase))
             .Select(d => d.Moniker).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         _logger.LogInformation("Build failed on metadata-validation-only errors ({Monikers}); running a second /Build to clear ordering artifacts", string.Join(",", monikers));
-        var second = await RunBuildAsync(new CompileRequest(request) { Rebuild = false }, ct).ConfigureAwait(false);
+        // Same kind of build as asked for. A plain /Build after a failed
+        // /Rebuild found the outputs "up to date", compiled nothing, synced
+        // nothing, and was reported green (2026-10-08 and 2026-10-21, both
+        // real). Only a pass that actually compiled can clear the first.
+        var second = await RunBuildAsync(new CompileRequest(request), ct).ConfigureAwait(false);
         second.OrderingRetry = true;
-        second.OrderingRetryNote =
-            $"first pass failed with {first.Diagnostics.Count(d => string.Equals(d.Severity, "Error", StringComparison.OrdinalIgnoreCase))} metadata-validation error(s) " +
-            $"({string.Join(", ", monikers)}) in {first.ElapsedMs} ms; validation runs before the X++ compile, so these were checked against " +
-            "not-yet-compiled objects. A second plain /Build was run; this response is that second pass." +
-            (second.Success ? " It is green: the first-pass errors were ordering artifacts, not defects." : " It still fails: treat its errors as real.");
+        var firstErrors = first.Diagnostics.Count(d => string.Equals(d.Severity, "Error", StringComparison.OrdinalIgnoreCase));
+        var kind = request.Rebuild ? "/Rebuild" : "/Build";
+        if (second.Success && second.UpToDate)
+        {
+            second.Success = false;
+            second.OrderingRetryNote =
+                $"first pass failed with {firstErrors} metadata-validation error(s) ({string.Join(", ", monikers)}); the retry {kind} compiled NOTHING " +
+                "(outputs reported up to date), so it proves nothing. Run xpp_compile(rebuild=true) again; do not treat this as green.";
+        }
+        else
+        {
+            second.OrderingRetryNote =
+                $"first pass failed with {firstErrors} metadata-validation error(s) ({string.Join(", ", monikers)}) in {first.ElapsedMs} ms; " +
+                $"validation runs before the X++ compile, so these were checked against not-yet-compiled objects. A second {kind} was run " +
+                "and this response is that second pass." +
+                (second.Success ? " It compiled and is green: the first-pass errors were ordering artifacts, not defects." : " It still fails: treat its errors as real.");
+        }
         second.ElapsedMs += first.ElapsedMs;
         return second;
     }
@@ -284,6 +300,11 @@ public sealed partial class PingGrpcService
                 response.Timing.XppCompileMs = ms;
             else if (step.StartsWith("Best practice check", StringComparison.OrdinalIgnoreCase))
                 response.Timing.BpCheckMs = ms;
+            else if (step.StartsWith("Database synchronization", StringComparison.OrdinalIgnoreCase))
+            {
+                response.Timing.DbSyncMs = ms;
+                response.DbSyncPerformed = true;
+            }
         }
 
         var recycle = AppPoolRecycleRegex.Match(stdout);
@@ -322,13 +343,11 @@ public sealed partial class PingGrpcService
                 else
                 {
                     response.Success = failed == 0 && process.ExitCode == 0;
-                    response.UpToDate = UpToDateRegex.IsMatch(response.SummaryLine);
                 }
             }
             else
             {
                 response.Success = process.ExitCode == 0;
-                response.UpToDate = UpToDateRegex.IsMatch(response.SummaryLine);
             }
         }
         else
@@ -348,6 +367,7 @@ public sealed partial class PingGrpcService
         // main .xml when both fire, so reading both would double-report
         // without dedup.
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var anyResultRefreshed = false;
         for (var i = 0; i < resultXmlPaths.Length; i++)
         {
             var path = resultXmlPaths[i];
@@ -358,6 +378,7 @@ public sealed partial class PingGrpcService
             // a build switches from "errored" to "clean," the prior .err.xml
             // stays on disk with old content. Stale-skip is the safety net.
             if (mtime == priorMtimes[i]) continue;
+            anyResultRefreshed = true;
             try
             {
                 using var fs = File.OpenRead(path);
@@ -379,6 +400,14 @@ public sealed partial class PingGrpcService
                 _logger.LogWarning(ex, "Failed to parse {Path}", path);
             }
         }
+
+        // Up-to-date is a FACT about this build, not devenv's summary wording:
+        // "N succeeded or up-to-date" is printed for every /Build, including one
+        // that compiled for three minutes and synced the database (reported
+        // 2026-10-20 as upToDate:true contradicting the DB). Nothing compiled
+        // only when no build-result XML was rewritten and the compile step was
+        // instantaneous.
+        response.UpToDate = response.Success && !anyResultRefreshed && response.Timing.XppCompileMs < 1000 && !response.DbSyncPerformed;
 
         // Merge the STDOUT diagnostics — the authoritative current set. When the
         // result XMLs were stale-skipped (the common failing-build case) this is

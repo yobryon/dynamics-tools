@@ -18,6 +18,35 @@ namespace Xpp.Service.Services;
 /// </summary>
 public sealed partial class PingGrpcService
 {
+
+    /// <summary>
+    /// The index is refreshed after every bridge write, but a file can change
+    /// under it (a write that raced, a VS save, a get-latest) and a cached
+    /// method body then re-introduces code that is gone (2026-10-08: a stale
+    /// cached buildRows() was used as a patch base). Serve from cache only
+    /// when the file's mtime still matches what the index saw; otherwise fall
+    /// through to the bridge and let the reconciler catch up.
+    /// </summary>
+    private bool CacheIsFresh(Microsoft.Data.Sqlite.SqliteConnection conn, string name, string axType, string model)
+    {
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT file_path, last_modified FROM objects WHERE name = $name AND ax_type = $ax AND model = $model LIMIT 1;";
+            cmd.Parameters.AddWithValue("$name", name);
+            cmd.Parameters.AddWithValue("$ax", axType);
+            cmd.Parameters.AddWithValue("$model", model);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return false;
+            var path = r.GetString(0);
+            var indexed = r.GetInt64(1);
+            if (!File.Exists(path)) return false;
+            var actual = new DateTimeOffset(File.GetLastWriteTimeUtc(path)).ToUnixTimeSeconds();
+            return actual <= indexed;
+        }
+        catch { return true; }
+    }
+
     public override async Task GetObjectMethods(
         ObjectRef request,
         IServerStreamWriter<MethodSummary> responseStream,
@@ -37,6 +66,7 @@ public sealed partial class PingGrpcService
         // ax_type / model filters on the join make it precise across
         // multi-model namespaces.
         using var conn = _db.Open();
+        if (CacheIsFresh(conn, request.Name, request.AxType, request.Model))
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = @"
@@ -117,6 +147,7 @@ public sealed partial class PingGrpcService
 
         // ---- cache path -------------------------------------------------
         using var conn = _db.Open();
+        if (CacheIsFresh(conn, obj.Name, obj.AxType, obj.Model))
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = @"

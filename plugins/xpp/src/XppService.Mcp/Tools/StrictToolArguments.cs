@@ -37,6 +37,10 @@ namespace Xpp.Service.Mcp.Tools;
 internal static class StrictToolArguments
 {
     private static readonly Assembly DomainAssembly = typeof(DomainJson).Assembly;
+    // Request shapes declared next to their tools (the label tools' entry
+    // payload) are ours too; a wrong key there wrote 15 empty labels as success.
+    private static readonly Assembly McpAssembly = typeof(StrictToolArguments).Assembly;
+    private static bool IsOurs(Type t) => t.Assembly == DomainAssembly || t.Assembly == McpAssembly;
     private static readonly Dictionary<string, MethodInfo> Tools = DiscoverTools();
     private static readonly JsonSerializerOptions Strict = BuildStrictOptions();
     private static readonly Regex UnmappedRegex = new(
@@ -161,7 +165,7 @@ internal static class StrictToolArguments
 
     private static string[] PropertyNames(string clrTypeName)
     {
-        var t = DomainAssembly.GetType(clrTypeName) ?? Type.GetType(clrTypeName);
+        var t = DomainAssembly.GetType(clrTypeName) ?? McpAssembly.GetType(clrTypeName) ?? Type.GetType(clrTypeName);
         if (t == null) return Array.Empty<string>();
         return t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(pr => pr.GetCustomAttribute<JsonIgnoreAttribute>() == null)
@@ -179,7 +183,8 @@ internal static class StrictToolArguments
 
     private static bool IsDomainShaped(Type t)
     {
-        if (t.Assembly == DomainAssembly) return true;
+        if (IsOurs(t)) return true;
+        if (t.IsArray) return IsDomainShaped(t.GetElementType()!);
         if (t.IsGenericType)
             return t.GetGenericArguments().Any(IsDomainShaped);
         return false;
@@ -226,7 +231,7 @@ internal static class StrictToolArguments
                 {
                     ti =>
                     {
-                        if (ti.Kind == JsonTypeInfoKind.Object && ti.Type.Assembly == DomainAssembly)
+                        if (ti.Kind == JsonTypeInfoKind.Object && IsOurs(ti.Type))
                             ti.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow;
                     },
                 },

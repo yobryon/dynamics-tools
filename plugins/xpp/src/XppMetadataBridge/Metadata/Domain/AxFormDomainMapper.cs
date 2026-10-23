@@ -80,6 +80,7 @@ namespace XppMetadataBridge.Metadata.Domain
             ("skip","Skip",true), ("autoDeclaration","AutoDeclaration",true), ("mandatory","Mandatory",true),
             ("pattern","Pattern",false), ("patternVersion","PatternVersion",false), ("helpText","HelpText",false),
             ("widthMode","WidthMode",false), ("heightMode","HeightMode",false),
+            ("width","Width",false), ("height","Height",false),
             ("configurationKey","ConfigurationKey",false), ("tags","Tags",false),
             ("dataField","DataField",false), ("dataSource","DataSource",false), ("label","Label",false),
             // Value-binding cluster: what a control binds to / renders as its value.
@@ -362,6 +363,14 @@ namespace XppMetadataBridge.Metadata.Domain
 
         internal static AxFormControl BuildControl(JObject json, Dictionary<string, JObject> ctlSource)
         {
+            // An ActionPaneTab has a Caption, not a Text; `text` on it validated,
+            // then vanished (reported 2026-10-20). Carry it over.
+            if (string.Equals((string?)json["kind"], "ActionPaneTab", StringComparison.OrdinalIgnoreCase)
+                && json["caption"] == null && json["text"] is JToken aptText && aptText.Type == JTokenType.String)
+            {
+                json["caption"] = aptText;
+                json.Remove("text");
+            }
             var kind = (string?)json["kind"] ?? "Other";
             string typeName = kind.Equals("Other", StringComparison.OrdinalIgnoreCase)
                 ? (string?)json["rawType"] ?? "AxFormControl"

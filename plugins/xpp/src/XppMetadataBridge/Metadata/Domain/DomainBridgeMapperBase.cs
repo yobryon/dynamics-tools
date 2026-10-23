@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
@@ -57,8 +58,29 @@ namespace XppMetadataBridge.Metadata.Domain
             var conformance = Conform(ax, json, isPatch: false);
             var saveInfo = WriteOperations.ResolveModel(providers, model);
             var accessor = AccessorOf(providers.Custom);
-            InvokeWrite(accessor, "Create", ax, saveInfo);
+            using (var guard = new WriteGuard(DiskPath(providers, model, MetaclassMap.GetName(ax))))
+            {
+                InvokeWrite(accessor, "Create", ax, saveInfo);
+                guard.Commit();
+            }
             return new DomainWriteResult(MetaclassMap.GetName(ax), conformance);
+        }
+
+        /// <summary>
+        /// On-disk XML of an object in a model, by the metadata store's layout
+        /// (packages\module\model\AxType\Name.xml). Null when it cannot be
+        /// determined; the guard then does nothing.
+        /// </summary>
+        private string? DiskPath(MetadataProviderHost providers, string model, string name)
+        {
+            try
+            {
+                var info = providers.Custom.ModelManifest.Read(model);
+                var root = providers.Config.PackagesLocalDirectory;
+                if (info == null || string.IsNullOrEmpty(root) || string.IsNullOrEmpty(name)) return null;
+                return System.IO.Path.Combine(root, info.Module, info.Name, AxType, name + ".xml");
+            }
+            catch { return null; }
         }
 
         public DomainWriteResult Patch(JObject patch, MetadataProviderHost providers, string model, string name)
@@ -81,7 +103,11 @@ namespace XppMetadataBridge.Metadata.Domain
             var updated = ApplyPatch(current, patch);
             var conformance = Conform(updated, patch, isPatch: true);
             var saveInfo = WriteOperations.ResolveModel(providers, model);
-            InvokeWrite(accessor, "Update", updated, saveInfo);
+            using (var guard = new WriteGuard(DiskPath(providers, model, name)))
+            {
+                InvokeWrite(accessor, "Update", updated, saveInfo);
+                guard.Commit();
+            }
             return new DomainWriteResult(MetaclassMap.GetName(updated), conformance);
         }
 
@@ -140,6 +166,59 @@ namespace XppMetadataBridge.Metadata.Domain
                     $"{methodName} {AxType} failed: {MetaclassMap.Innermost(tie.InnerException)}",
                     new { detail = tie.InnerException.ToString() });
             }
+        }
+    }
+
+    /// <summary>
+    /// Keeps a rejected or botched metadata write from destroying the file.
+    ///
+    /// Measured 2026-10-23: Microsoft's typed-accessor Update truncated a
+    /// form's XML to an empty root element and THEN threw ("Element named
+    /// 'init' already exists"); the whole design was gone and only an earlier
+    /// read in the agent's context saved it. So: snapshot the bytes before
+    /// the write, and put them back when the write throws or leaves behind a
+    /// file that is empty or far smaller than what was there.
+    /// </summary>
+    internal sealed class WriteGuard : IDisposable
+    {
+        private readonly string? _path;
+        private readonly byte[]? _before;
+        private bool _committed;
+
+        public WriteGuard(string? path)
+        {
+            _path = path;
+            try { if (path != null && File.Exists(path)) _before = File.ReadAllBytes(path); } catch { _before = null; }
+        }
+
+        /// <summary>Call after the write returned normally. Still restores when
+        /// the accessor "succeeded" but left a hollow file behind.</summary>
+        public void Commit()
+        {
+            _committed = true;
+            if (_path == null || _before == null) return;
+            try
+            {
+                var after = File.Exists(_path) ? new FileInfo(_path).Length : 0;
+                // An AxForm root alone is ~140 bytes; anything that shrank to
+                // under a tenth of its former size did not get written properly.
+                if (after < 200 && _before.Length > 400 || after * 10 < _before.Length)
+                {
+                    File.WriteAllBytes(_path, _before);
+                    throw new JsonRpcException(JsonRpcErrorCodes.InternalError,
+                        $"the metadata write left {System.IO.Path.GetFileName(_path)} at {after} bytes (was {_before.Length}); the previous content was restored and nothing was changed.");
+                }
+            }
+            catch (JsonRpcException) { throw; }
+            catch { /* best effort */ }
+        }
+
+        public void Dispose()
+        {
+            if (_committed || _path == null || _before == null) return;
+            // The write threw. Whatever the accessor did to the file on the way
+            // out, the object the caller had is the object they keep.
+            try { File.WriteAllBytes(_path, _before); } catch { }
         }
     }
 }

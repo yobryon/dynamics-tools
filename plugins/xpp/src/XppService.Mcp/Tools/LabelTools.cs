@@ -90,15 +90,19 @@ public sealed class LabelTools
                 LabelId = labelId
             }
         };
-        var resp = await _conn.Client.LabelReadAsync(request, cancellationToken: ct);
-        return JsonSerializer.Serialize(new
+        try
         {
-            labelFileId = resp.Ref.LabelFileId,
-            language = resp.Ref.Language,
-            labelId = resp.Ref.LabelId,
-            value = resp.Value,
-            description = resp.Description
-        });
+            var resp = await _conn.Client.LabelReadAsync(request, cancellationToken: ct);
+            return JsonSerializer.Serialize(new
+            {
+                labelFileId = resp.Ref.LabelFileId,
+                language = resp.Ref.Language,
+                labelId = resp.Ref.LabelId,
+                value = resp.Value,
+                description = resp.Description
+            });
+        }
+        catch (Exception ex) { return ToolError.From("xpp_label_read", ex); }
     }
 
     [McpServerTool(Name = "xpp_label_add"), Description(
@@ -113,9 +117,21 @@ public sealed class LabelTools
         [Description("BCP-47 language tag. Empty defaults to 'en-US'.")] string? language = null,
         CancellationToken ct = default)
     {
-        var request = BuildMutationRequest(labelFileId, language, labels);
-        var resp = await _conn.Client.LabelAddAsync(request, cancellationToken: ct);
-        return SerializeMutation(resp, "added");
+        var empty = (labels ?? Array.Empty<LabelEntryPayload>()).Where(l => string.IsNullOrWhiteSpace(l.Value)).Select(l => l.LabelId).ToArray();
+        if (empty.Length > 0)
+            return JsonSerializer.Serialize(new
+            {
+                error = "empty_label_value",
+                labelIds = empty,
+                message = "every label needs a non-empty value (the displayed text). Nothing was written. The entry shape is {labelId, value, description?}.",
+            });
+        try
+        {
+            var request = BuildMutationRequest(labelFileId, language, labels!);
+            var resp = await _conn.Client.LabelAddAsync(request, cancellationToken: ct);
+            return SerializeMutation(resp, "added");
+        }
+        catch (Exception ex) { return ToolError.From("xpp_label_add", ex); }
     }
 
     [McpServerTool(Name = "xpp_label_update"), Description(
@@ -129,9 +145,21 @@ public sealed class LabelTools
         [Description("BCP-47 language tag. Empty defaults to 'en-US'.")] string? language = null,
         CancellationToken ct = default)
     {
-        var request = BuildMutationRequest(labelFileId, language, labels);
-        var resp = await _conn.Client.LabelUpdateAsync(request, cancellationToken: ct);
-        return SerializeMutation(resp, "updated");
+        var empty = (labels ?? Array.Empty<LabelEntryPayload>()).Where(l => string.IsNullOrWhiteSpace(l.Value)).Select(l => l.LabelId).ToArray();
+        if (empty.Length > 0)
+            return JsonSerializer.Serialize(new
+            {
+                error = "empty_label_value",
+                labelIds = empty,
+                message = "every label needs a non-empty value (the displayed text). Nothing was written. The entry shape is {labelId, value, description?}.",
+            });
+        try
+        {
+            var request = BuildMutationRequest(labelFileId, language, labels!);
+            var resp = await _conn.Client.LabelUpdateAsync(request, cancellationToken: ct);
+            return SerializeMutation(resp, "updated");
+        }
+        catch (Exception ex) { return ToolError.From("xpp_label_update", ex); }
     }
 
     [McpServerTool(Name = "xpp_label_delete"), Description(

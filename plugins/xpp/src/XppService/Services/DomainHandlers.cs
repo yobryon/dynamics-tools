@@ -24,7 +24,74 @@ namespace Xpp.Service.Services;
 /// </summary>
 public sealed partial class PingGrpcService
 {
-    public override async Task<WriteObjectResponse> CreateDomainObject(
+
+
+    /// <summary>
+    /// Kind-aware aliasing the typed record cannot express: an ActionPaneTab
+    /// has a Caption, not a Text, yet `text` is a legal FormControl property
+    /// (StaticText, buttons). Move it before the bridge and the drift check
+    /// see the request, so the caption lands AND nothing is reported dropped.
+    /// </summary>
+    private static string NormalizeFormRequest(string axType, string json)
+    {
+        if (!string.Equals(axType, "AxForm", StringComparison.OrdinalIgnoreCase)) return json;
+        try
+        {
+            var root = JsonNode.Parse(json);
+            var changed = false;
+            void Walk(JsonNode? n)
+            {
+                if (n is JsonArray a) { foreach (var i in a) Walk(i); return; }
+                if (n is not JsonObject o) return;
+                if (string.Equals(o["kind"]?.GetValue<string>(), "ActionPaneTab", StringComparison.OrdinalIgnoreCase)
+                    && o["text"] is JsonNode t && o["caption"] == null)
+                {
+                    o["caption"] = t.DeepClone(); o.Remove("text"); changed = true;
+                }
+                foreach (var kv in o) Walk(kv.Value);
+            }
+            Walk(root);
+            return changed ? root!.ToJsonString() : json;
+        }
+        catch { return json; }
+    }
+
+    // ---- write serialization ---------------------------------------------
+    // Two writes to the same object from one agent (parallel tool calls) used
+    // to interleave inside the bridge; the loser's rejection then clobbered
+    // the file. One writer per object at a time; different objects proceed in
+    // parallel.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> ObjectWriteLocks = new(StringComparer.OrdinalIgnoreCase);
+
+    private static async Task<T> WithObjectLockAsync<T>(string axType, string name, CancellationToken ct, Func<Task<T>> body)
+    {
+        var gate = ObjectWriteLocks.GetOrAdd(axType + ":" + name, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try { return await body().ConfigureAwait(false); }
+        finally { gate.Release(); }
+    }
+
+    private static string NameOf(string domainJson)
+    {
+        try { return JsonNode.Parse(domainJson)?["name"]?.GetValue<string>() ?? string.Empty; } catch { return string.Empty; }
+    }
+
+    public override Task<WriteObjectResponse> CreateDomainObject(CreateDomainObjectRequest request, ServerCallContext context)
+    {
+        request.DomainJson = NormalizeFormRequest(request.AxType, request.DomainJson);
+        return WithObjectLockAsync(request.AxType, NameOf(request.DomainJson), context.CancellationToken, () => CreateDomainObjectCore(request, context));
+    }
+
+    public override Task<WriteObjectResponse> PatchDomainObject(PatchDomainObjectRequest request, ServerCallContext context)
+    {
+        request.PatchJson = NormalizeFormRequest(request.AxType, request.PatchJson);
+        return WithObjectLockAsync(request.AxType, request.Name, context.CancellationToken, () => PatchDomainObjectCore(request, context));
+    }
+
+    public override Task<WriteObjectResponse> PatchDomainObjectByPath(PatchByPathRequest request, ServerCallContext context)
+        => WithObjectLockAsync(request.AxType, request.Name, context.CancellationToken, () => PatchDomainObjectByPathCore(request, context));
+
+    private async Task<WriteObjectResponse> CreateDomainObjectCore(
         CreateDomainObjectRequest request, ServerCallContext context)
     {
         if (string.IsNullOrWhiteSpace(request.Model))
@@ -51,7 +118,7 @@ public sealed partial class PingGrpcService
         return response;
     }
 
-    public override async Task<WriteObjectResponse> PatchDomainObject(
+    private async Task<WriteObjectResponse> PatchDomainObjectCore(
         PatchDomainObjectRequest request, ServerCallContext context)
     {
         if (string.IsNullOrWhiteSpace(request.Model))
@@ -244,7 +311,7 @@ public sealed partial class PingGrpcService
         return segs.Length > 0 ? segs[^1] : null;
     }
 
-    public override async Task<WriteObjectResponse> PatchDomainObjectByPath(
+    private async Task<WriteObjectResponse> PatchDomainObjectByPathCore(
         PatchByPathRequest request, ServerCallContext context)
     {
         if (string.IsNullOrWhiteSpace(request.Model))
@@ -327,14 +394,28 @@ public sealed partial class PingGrpcService
         await ApplyDriftDetectionAsync(request.AxType, name, patchJson, response, context.CancellationToken)
             .ConfigureAwait(false);
 
-        // Drop false-positive drift: a key the edit INTRODUCED that didn't
-        // round-trip is the node type not carrying that property (e.g. `name`
-        // on a FormDataSourceField, which is keyed by dataField) — not a mapper
-        // regression. Only keys the node already had count as real drift.
+        // A key the edit INTRODUCED that did not round-trip is the node type
+        // not carrying that property. For an identity-style key on a node keyed
+        // by something else (`name` on a FormDataSourceField, keyed by
+        // dataField) that is benign and stays silent. For anything else it is
+        // exactly what the author needs to hear: `width` on a group was
+        // accepted by the dry run, written as nothing, and found only by the
+        // compiler's "-1" (2026-10-09). Keep those, with a sharper message.
         if (splice.AddedKeys.Count > 0 && response.Drift.Count > 0)
         {
             var added = new HashSet<string>(splice.AddedKeys, StringComparer.OrdinalIgnoreCase);
-            var kept = response.Drift.Where(d => !added.Contains(LeafProperty(d.RequestPath))).ToList();
+            var identity = new HashSet<string>(new[] { "name", "dataField", "field", "mapField" }, StringComparer.OrdinalIgnoreCase);
+            var kept = new List<DriftWarning>();
+            foreach (var d in response.Drift)
+            {
+                var leaf = LeafProperty(d.RequestPath);
+                if (added.Contains(leaf) && identity.Contains(leaf)) continue;
+                if (added.Contains(leaf))
+                    d.Note = $"'{leaf}' is not a property this node type carries, so the value {d.RequestValue} was NOT written " +
+                                "(the dry run only shows the JSON merge; it cannot know what the serializer models). Check the on-disk XML element name " +
+                                "and pass it through otherProperties, or file it as a typed-mapper gap.";
+                kept.Add(d);
+            }
             response.Drift.Clear();
             response.Drift.AddRange(kept);
         }

@@ -35,7 +35,9 @@ internal static class DriftReporting
         var list = existing == null ? new List<string>() : existing.ToList();
         foreach (var d in drift)
         {
-            list.Add($"drift: '{d.RequestPath}' (value={d.RequestValue}) was specified in the request but did not survive the mapper round-trip. File as a typed-mapper gap.");
+            list.Add(string.IsNullOrEmpty(d.Note)
+                ? $"drift: '{d.RequestPath}' (value={d.RequestValue}) was specified in the request but did not survive the mapper round-trip. File as a typed-mapper gap."
+                : $"drift: '{d.RequestPath}': {d.Note}");
         }
         return list.ToArray();
     }
@@ -48,7 +50,7 @@ internal static class DriftReporting
     {
         var arr = new object[drift.Count];
         for (int i = 0; i < drift.Count; i++)
-            arr[i] = new { path = drift[i].RequestPath, value = drift[i].RequestValue };
+            arr[i] = new { path = drift[i].RequestPath, value = drift[i].RequestValue, note = string.IsNullOrEmpty(drift[i].Note) ? null : drift[i].Note };
         return arr;
     }
 

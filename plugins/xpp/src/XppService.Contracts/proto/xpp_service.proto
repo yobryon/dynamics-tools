@@ -516,6 +516,9 @@ message PatternMismatch {
 message DriftWarning {
   string request_path = 1;
   string request_value = 2;
+  // Optional explanation when the cause is known (e.g. a key the node type
+  // does not carry). Empty for the generic "did not survive the round-trip".
+  string note = 3;
 }
 
 // =============================================================================
@@ -968,6 +971,9 @@ message CompileResponse {
   bool ordering_retry = 15;
   // What the first pass reported, for the record.
   string ordering_retry_note = 16;
+  // True when devenv reported the "Database synchronization" step complete
+  // in THIS build -- a fact from the build output, not an inference.
+  bool db_sync_performed = 17;
 }
 
 message BuildProgress {
@@ -1000,6 +1006,7 @@ message CompileTiming {
   int64 xpp_compile_ms = 2;
   int64 bp_check_ms = 3;
   int64 app_pool_recycle_ms = 4;
+  int64 db_sync_ms = 5;
 }
 
 // =============================================================================
