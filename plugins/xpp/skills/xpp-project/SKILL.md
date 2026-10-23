@@ -456,6 +456,15 @@ Cold-start tax is ~14s (devenv loading). With nothing to compile
 the build is `upToDate: true` and finishes in ~17s; a real
 /Rebuild on a small project is ~30-35s.
 
+**Reading the result.** `upToDate` is a fact derived from the build:
+true only when no build-result file was rewritten and the compile step was
+instantaneous (devenv's own summary says "succeeded or up-to-date" for
+every build, so it is not the source). `dbSync.performed` says whether the
+database synchronization step actually ran in this build. A failed build
+never syncs. `orderingRetry` on a response means the first pass failed on
+validation-ordering errors and the same kind of build was run again; if
+that retry compiled nothing it is reported as NOT green.
+
 **Long builds and lost results.** A rebuild with `DBSyncInBuild` on can
 outlive the tool-call timeout; the build keeps running and the result is
 NOT lost. `xpp_compile_status` reports the running build (devenv pid,

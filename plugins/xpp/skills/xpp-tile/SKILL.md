@@ -125,7 +125,7 @@ Used less than Count in practice.
 | Property | Notes |
 |---|---|
 | **`Name`** | The AOT name. Convention: `<prefix><Function>Tile` (e.g., `CONPendingShipmentsTile`). |
-| **`Type`** | `Count` (default), `Standard`, `KPI`, `Link`. |
+| **`Type`** | `Standard` (the default: a plain navigation tile with no count; shipped workspace tiles with no `<Type>` element are Standard), `Count`, `KPI`, `Link`. **`Link` is the external-URL tile** (pairs with `URL`), NOT the plain navigation tile. In the typed tool, pass `type: "Standard"` explicitly to turn a Link/Count tile back into a plain one; `patch_by_path remove /type` cannot reset it (the tool refuses). |
 | **`Label`** | What appears on the tile. Use a label reference. Keep it short — tiles are small. |
 | `MenuItemName` | The Display menu item this tile navigates to. Required for Count / Standard. |
 | `MenuItemType` | The menu item's type. Almost always `Display`. (Standard tile only — Count derives from MenuItemName.) |
@@ -133,7 +133,7 @@ Used less than Count in practice.
 | `KPI` | When `Type=KPI`, the `AxKPI` element to summarize. |
 | `URL` | When `Type=Link`, the destination URL. |
 | `Size` | Tile size; affects placement. Common: `ShortWide` (Count default), `Small`, `Medium`, `Wide`. |
-| `RefreshFrequency` | How often the count updates. `AsFastAsPermissible` (5s — only for fast queries <25ms), `10Minutes` (queries <250ms), `24Hours` (slow or stable data). |
+| `RefreshFrequency` | How often a cached count refreshes. The real enum: `AsFastAsPermissible`, `OneMinute`, `FiveMinutes`, `FifteenMinutes`, `OneHour`, `FourHours`, `TwentyFourHours` (there is no `10Minutes` / `24Hours`). See the section below for the user-context rule. |
 | `ConfigurationKey` | Gate visibility on a feature key. |
 | `NormalImage` | Icon when enabled. Same image-resource rules as menu items. |
 | `NormalImageLocation` | `EmbeddedResource` / `File` / `Resource` — where the image comes from. |
@@ -148,14 +148,21 @@ Used less than Count in practice.
 
 | Value | When to use |
 |---|---|
-| `AsFastAsPermissible` | Query is fast (<25ms) AND users need near-real-time counts. The system polls every ~5 seconds. |
-| `10Minutes` | Query is moderate (<250ms) OR users only need periodic updates. |
-| `24Hours` | Slow query (>250ms) OR data that changes rarely. |
+| `AsFastAsPermissible` | Computed live in the user's session on every refresh. Required for any query that depends on the current user; otherwise use it only when the query is fast (<25 ms) and the metric is watched closely. |
+| `OneMinute` / `FiveMinutes` / `FifteenMinutes` | Cached refresh for moderate queries whose answer is the same for every user. |
+| `OneHour` / `FourHours` / `TwentyFourHours` | Slow queries or data that changes rarely. |
 
-**Default to `10Minutes`** for most tiles. Only bump to
-`AsFastAsPermissible` if the query is provably fast AND the
-metric is something users actually watch second-by-second
-(rare).
+**Tiles whose query depends on the current user MUST use
+`AsFastAsPermissible`.** A cached frequency is evaluated by a background
+refresh that runs WITHOUT the user's context, so a range on
+`(currentUserId())` ("assigned to me", "awaiting my approval") evaluates to
+nothing and the tile shows 0 until someone refreshes it by hand (reported
+2026-10-23; the shipped `PurchOrderAssignedToMe` tile uses
+AsFastAsPermissible for exactly this reason). Keep such queries
+index-friendly instead of caching them.
+
+For everything else, prefer `FiveMinutes` as the default and go longer
+for slow or stable data.
 
 Sluggish workspaces are almost always caused by tiles set to
 `AsFastAsPermissible` against unoptimized queries. See the

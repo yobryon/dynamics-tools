@@ -2,7 +2,7 @@
   "_doc": [
     "Typed CreateFormRequest for a HubPartChart form part: one data set over a temp table, two Column measures, no secondary axis.",
     "Shape taken from the shipped RetailITDownloadSessionsChart (read it with xpp_get_form for the full property list).",
-    "Before this: create the temp table MyOrdersByDayTmp (TableType=TempDB; fields OrderDate (date), OpenCount (int), ClosedCount (int)).",
+    "Before this: create the temp table MyOrdersByDayTmp (TableType=InMemory, which is what setTmpData binds; a TempDB table needs linkPhysicalTableInstance instead; fields OrderDate (date), OpenCount (int), ClosedCount (int)).",
     "After this: create AxMenuItemDisplay MyOrdersByDayChartMenuItem with object=MyOrdersByDayChart, add it to the workspace privilege, then host it (see workspace-chart-hosts.json).",
     "Every enum-typed extension property needs otherProperties.TypeName; booleans are Enum/boolean with True/False."
   ],

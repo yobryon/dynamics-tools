@@ -27,8 +27,7 @@ operation. Use these instead:
 
 | You want to… | Tool |
 |---|---|
-| Find a label across the codebase by content | `xpp_search_labels` (indexed global search) |
-| Find a label in a specific file by regex | `xpp_label_search` (case-insensitive regex, scoped) |
+| Find a label by content | `xpp_label_search` (case-insensitive regex over one or more label files: `labelFileIds`, `pattern`) |
 | Read a specific label's value + description | `xpp_label_read` |
 | Add one or many labels to an existing file | `xpp_label_add` (batch-capable) |
 | Change one or many existing labels | `xpp_label_update` (batch-capable) |
@@ -53,7 +52,7 @@ labels go through as **one** `xpp_label_add` call, not four.
 ### Decision tree: search before you add
 
 1. User wants to label something? Call `xpp_label_search` (or
-   `xpp_search_labels` if the file is unknown) for the proposed text
+   `xpp_label_search` across the model's label files if the file is unknown) for the proposed text
    first. Reusing an existing label is preferable to creating a
    near-duplicate.
 2. No match? Call `xpp_label_add` with the new entry (or entries).
@@ -75,7 +74,7 @@ the tools):
 
 The XML is essentially a pointer; the resource text file holds the
 actual label content. The `xpp_label_*` tools hide this split — you
-work with `(label_file_id, language, label_id)` triples and the tool
+work with `(labelFileId, language, labelId)` triples (camelCase, exactly as the tool schema spells them) and the tool
 handles both files.
 
 A single label file typically contains hundreds of labels. Group
@@ -90,8 +89,8 @@ Working with labels involves four different identifiers:
 | ID | Description | Example | Used by |
 |---|---|---|---|
 | **Name** | AxLabelFile artifact name. Format `<LabelFileId>_<Lang>`. | `MyLabels_en-US` | `xpp_find_object`, `xpp_get_object_xml` |
-| **LabelFileId** | Logical file identifier. Same on XML and resource sides. | `MyLabels` | The `label_file_id` parameter on every `xpp_label_*` tool |
-| **LabelId** | Per-label key within the resource file. | `LogSavedSuccess` | The `label_id` parameter on `xpp_label_read/add/update/delete` |
+| **LabelFileId** | Logical file identifier. Same on XML and resource sides. | `MyLabels` | The `labelFileId` parameter on every `xpp_label_*` tool |
+| **LabelId** | Per-label key within the resource file. | `LogSavedSuccess` | The `labelId` parameter on `xpp_label_read/add/update/delete` |
 | **LabelSearchId** | Lookup token. Format `@<LabelFileId>:<LabelId>`. | `@MyLabels:LogSavedSuccess` | Every reference in code/XML/metadata |
 
 The `@File:Id` form (`LabelSearchId`) is the canonical reference shape.
@@ -218,7 +217,7 @@ country, To state."*
    demo, etc.). If unsure, use `xpp_find_object` with type
    `AxLabelFile` to enumerate what exists in the model — don't
    `Glob` the metadata directory.
-2. Optionally check for prior art: `xpp_label_search(label_file_ids=
+2. Optionally check for prior art: `xpp_label_search(labelFileIds=
    ["CONL"], pattern="from\s+country")` — if a matching label exists,
    reuse it.
 3. One batched `xpp_label_add` call with all four entries.
@@ -227,7 +226,7 @@ country, To state."*
 
 ### Change wording on an existing label
 
-1. `xpp_label_read({label_file_id, label_id, language})` to confirm
+1. `xpp_label_read({labelFileId, labelId, language})` to confirm
    current value.
 2. `xpp_label_update` with the new value (and description if
    changing). Single call, even for one label.
@@ -236,7 +235,7 @@ country, To state."*
 
 1. Optional: search for references to `@MyLabels:Foo` via the
    MCP code-search tool to confirm nothing still points at it.
-2. `xpp_label_delete({label_file_id, language, label_id})`.
+2. `xpp_label_delete({labelFileId, language, labelId})`.
 
 ---
 
@@ -267,7 +266,7 @@ These should all be replaced with label references for translatability.
 ### When you find hardcoded text
 
 1. **Search for an existing label.** `xpp_label_search` (scoped to
-   the model's label files) or `xpp_search_labels` (global indexed).
+   the model's label files).
 2. **If a label already exists** that matches the intent and text,
    reuse it. Don't proliferate near-duplicate labels.
 3. **If no match, add a new label** with `xpp_label_add`. Pick a
@@ -288,10 +287,10 @@ info("@Fleet:CustomerSavedSuccess");
 The corresponding entry (added via `xpp_label_add`):
 
 ```
-label_file_id: Fleet
+labelFileId: Fleet
 language: en-US
 labels: [
-  { label_id: "CustomerSavedSuccess",
+  { labelId: "CustomerSavedSuccess",
     value: "Customer record saved successfully",
     description: "Confirmation message shown after a customer record is persisted." }
 ]

@@ -22,7 +22,7 @@
     }
   },
   "stackedChartPage": {
-    "_doc": "A whole tab page: Section Stacked Chart, one or two FormPartControls only. Caption is required by BP. autoDeclaration=true on a host is only needed when the workspace X++ calls <host>.getPartFormRun().",
+    "_doc": "A whole tab page: Section Stacked Chart, one or two FormPartControls only. Caption is required by BP. Leave the hosts' size modes alone: the pattern requires SizeToContent on both (the write stamps it). autoDeclaration=true on a host is only needed when the workspace X++ calls <host>.getPartFormRun().",
     "name": "ChartsSection",
     "kind": "TabPage",
     "pattern": "SectionStackedChart",
@@ -34,7 +34,6 @@
         "name": "MyOrdersByDayChartHost",
         "kind": "Container",
         "autoDeclaration": true,
-        "heightMode": "SizeToAvailable",
         "formControlExtension": {
           "name": "FormPartControl",
           "extensionProperties": [
@@ -50,7 +49,6 @@
       {
         "name": "MyOrdersByValueChartHost",
         "kind": "Container",
-        "heightMode": "SizeToAvailable",
         "formControlExtension": {
           "name": "FormPartControl",
           "extensionProperties": [

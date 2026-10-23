@@ -1,9 +1,10 @@
 {
   "_doc": [
-    "Minimal typed DetailsMaster request for xpp_create_form.",
-    "DetailsMaster is the entity-master pattern: single record, full edit surface, no lines.",
-    "In modern F&O, DetailsMaster ALSO subsumes the old ListPage when there's a 1:1 list-to-details correspondence.",
-    "Structure: TitleStrip (header band) + ActionPane + DetailsHeader (compact identifying fields) + DetailsTab (FastTabs for the rest)."
+    "Typed DetailsMaster request for xpp_create_form, shaped from a live read of a shipped DetailsMaster 1.4 form (EcoResInventTableItemIdRenameLog, 10.0.4x). Every pattern name, version and style below is what the metadata on disk carries.",
+    "Pattern is DetailsMaster 1.4; the design STYLE is DetailsFormMaster (they diverge on purpose). Structure: ActionPane, a SidePanel Group (the navigation list: QuickFilter + List-style Grid), and a Tab with ShowTabs=No holding two pages: the DetailsPanel (title group + FastTabs of FieldsFieldGroups 1.1 pages) and the GridPanel (CustomAndQuickFilters 1.1 group + the main grid).",
+    "The pattern engine stamps the prescribed property values at write time (including the sub-patterns' required values) and reports them under patternConformance; do not hand-set them.",
+    "The title control binds dataMethod titleFields: on a sealed table author it as a FORM DATASOURCE display method with the base signature (Common _record) and cast inside.",
+    "Substitute the backing table, fields and labels; keep the control kinds, styles and patterns."
   ],
   "name": "MyEntityDetails",
   "dataSources": [
@@ -12,95 +13,176 @@
       "kind": "Root",
       "table": "MyEntity",
       "fields": [
-        {"dataField": "MyEntityId"},
-        {"dataField": "Name"},
-        {"dataField": "Description"},
-        {"dataField": "Address"},
-        {"dataField": "Phone"}
+        { "dataField": "MyEntityId" },
+        { "dataField": "Name" },
+        { "dataField": "Description" },
+        { "dataField": "CreatedDateTime" }
       ]
     }
   ],
   "design": {
-    "caption": "@MyLabels:MyEntity",
-    "pattern": "DetailsFormMaster",
-    "patternVersion": "1.1",
+    "caption": "@MyLabels:MyEntities",
+    "pattern": "DetailsMaster",
+    "patternVersion": "1.4",
     "style": "DetailsFormMaster",
-    "titleDataSource": "MyEntity",
-    "viewEditMode": "Auto",
+    "viewEditMode": "View",
+    "otherProperties": { "ShowNewButton": "No", "ShowDeleteButton": "Yes" },
     "controls": [
-      {
-        "_doc": "Title strip: persistent header band showing the record's identifying fields.",
-        "name": "TitleStrip",
-        "kind": "Group",
-        "pattern": "TitleStrip",
-        "patternVersion": "1.1",
-        "dataSource": "MyEntity",
-        "controls": [
-          {"name": "Title_MyEntityId", "kind": "String", "dataField": "MyEntityId", "dataSource": "MyEntity", "style": "Title"},
-          {"name": "Title_Name",       "kind": "String", "dataField": "Name",       "dataSource": "MyEntity", "style": "Subtitle"}
-        ]
-      },
       {
         "name": "ActionPane",
         "kind": "ActionPane",
-        "dataSource": "MyEntity",
         "controls": [
           {
             "name": "ActionPaneTab",
             "kind": "ActionPaneTab",
-            "controls": []
+            "caption": "@SYS60543",
+            "controls": [
+              {
+                "name": "NewGroup",
+                "kind": "ButtonGroup",
+                "controls": [
+                  { "name": "NewButton", "kind": "CommandButton", "command": "New" }
+                ]
+              }
+            ]
           }
         ]
       },
       {
-        "_doc": "DetailsHeader: compact identifying-fields band above the FastTabs. List/master fields go here in order.",
-        "name": "DetailsHeader",
+        "_doc": "Navigation list (the left side panel in details view).",
+        "name": "NavigationList",
         "kind": "Group",
-        "pattern": "FieldsAndFieldGroups",
-        "patternVersion": "1.1",
+        "style": "SidePanel",
+        "dataSource": "MyEntity",
+        "otherProperties": { "FrameType": "None" },
         "controls": [
-          {"name": "Header_MyEntityId", "kind": "String", "dataField": "MyEntityId", "dataSource": "MyEntity"},
-          {"name": "Header_Name",       "kind": "String", "dataField": "Name",       "dataSource": "MyEntity"}
+          {
+            "name": "NavigationListQuickFilter",
+            "kind": "Other",
+            "rawType": "AxFormControl",
+            "widthMode": "SizeToAvailable",
+            "formControlExtension": {
+              "name": "QuickFilterControl",
+              "extensionProperties": [
+                { "name": "targetControlName", "type": "String", "value": "NavigationListGrid" },
+                { "name": "defaultColumnName", "type": "String", "value": "MyEntity_Name" },
+                { "name": "placeholderText", "type": "String", "value": "@SYS4160785" }
+              ]
+            }
+          },
+          {
+            "name": "NavigationListGrid",
+            "kind": "Grid",
+            "style": "List",
+            "dataSource": "MyEntity",
+            "otherProperties": { "MultiSelect": "No", "ShowRowLabels": "No" },
+            "controls": [
+              { "name": "MyEntity_Name", "kind": "String", "dataSource": "MyEntity", "dataField": "Name" },
+              { "name": "MyEntity_MyEntityId", "kind": "String", "dataSource": "MyEntity", "dataField": "MyEntityId" }
+            ]
+          }
         ]
       },
       {
-        "_doc": "DetailsTab: FastTabs for the rest of the entity's fields. Group related fields per FastTab.",
-        "name": "DetailsTab",
+        "_doc": "The two panels live in a Tab with ShowTabs=No; the pattern switches between them.",
+        "name": "PanelTab",
         "kind": "Tab",
-        "style": "FastTabs",
+        "otherProperties": { "ShowTabs": "No" },
         "controls": [
           {
-            "name": "GeneralTab",
+            "name": "DetailsPanel",
             "kind": "TabPage",
-            "caption": "@SYS302428",
-            "pattern": "FieldsAndFieldGroups",
-            "patternVersion": "1.1",
+            "style": "DetailsFormDetails",
+            "otherProperties": { "PanelStyle": "Details" },
             "controls": [
               {
-                "name": "GeneralGroup",
+                "name": "TitleGroup",
                 "kind": "Group",
+                "style": "DetailTitleContainer",
+                "otherProperties": { "FrameType": "None", "ArrangeMethod": "HorizontalLeft" },
                 "controls": [
-                  {"name": "General_Description", "kind": "String", "dataField": "Description", "dataSource": "MyEntity"}
+                  { "name": "HeaderTitle", "kind": "String", "style": "TitleField", "dataSource": "MyEntity", "dataMethod": "titleFields", "otherProperties": { "ShowLabel": "No" } }
+                ]
+              },
+              {
+                "name": "Tab",
+                "kind": "Tab",
+                "style": "FastTabs",
+                "controls": [
+                  {
+                    "name": "GeneralTab",
+                    "kind": "TabPage",
+                    "pattern": "FieldsFieldGroups",
+                    "patternVersion": "1.1",
+                    "caption": "@SYS2952",
+                    "otherProperties": { "ColumnsMode": "Fill" },
+                    "controls": [
+                      { "name": "MyEntity_MyEntityId1", "kind": "String", "dataSource": "MyEntity", "dataField": "MyEntityId" },
+                      { "name": "MyEntity_Name1", "kind": "String", "dataSource": "MyEntity", "dataField": "Name" },
+                      { "name": "MyEntity_Description1", "kind": "String", "dataSource": "MyEntity", "dataField": "Description" },
+                      { "name": "MyEntity_CreatedDateTime1", "kind": "DateTime", "dataSource": "MyEntity", "dataField": "CreatedDateTime" }
+                    ]
+                  }
                 ]
               }
             ]
           },
           {
-            "name": "ContactTab",
+            "name": "GridPanel",
             "kind": "TabPage",
-            "caption": "@MyLabels:Contact",
-            "pattern": "FieldsAndFieldGroups",
-            "patternVersion": "1.1",
+            "style": "DetailsFormGrid",
+            "otherProperties": { "PanelStyle": "Grid" },
             "controls": [
               {
-                "name": "ContactGroup",
+                "name": "CustomFilterGroup",
                 "kind": "Group",
+                "pattern": "CustomAndQuickFilters",
+                "patternVersion": "1.1",
                 "controls": [
-                  {"name": "Contact_Address", "kind": "String", "dataField": "Address", "dataSource": "MyEntity"},
-                  {"name": "Contact_Phone",   "kind": "String", "dataField": "Phone",   "dataSource": "MyEntity"}
+                  {
+                    "name": "MainGridQuickFilter",
+                    "kind": "Other",
+                    "rawType": "AxFormControl",
+                    "widthMode": "SizeToAvailable",
+                    "formControlExtension": {
+                      "name": "QuickFilterControl",
+                      "extensionProperties": [
+                        { "name": "targetControlName", "type": "String", "value": "MainGrid" },
+                        { "name": "defaultColumnName", "type": "String", "value": "MyEntity_Name2" },
+                        { "name": "placeholderText", "type": "String", "value": "@SYS4160785" }
+                      ]
+                    }
+                  }
                 ]
-              }
+              },
+              {
+                "name": "MainGrid",
+                "kind": "Grid",
+                "dataSource": "MyEntity",
+                "otherProperties": { "VisibleRowsMode": "Fixed", "VisibleRows": "7", "DefaultAction": "MainGridDefaultAction" },
+                "controls": [
+                  { "name": "MyEntity_MyEntityId2", "kind": "String", "dataSource": "MyEntity", "dataField": "MyEntityId" },
+                  { "name": "MyEntity_Name2", "kind": "String", "dataSource": "MyEntity", "dataField": "Name" },
+                  { "name": "MyEntity_Description2", "kind": "String", "dataSource": "MyEntity", "dataField": "Description" },
+                  { "name": "MyEntity_CreatedDateTime2", "kind": "DateTime", "dataSource": "MyEntity", "dataField": "CreatedDateTime" }
+                ]
+              },
+              { "name": "MainGridDefaultAction", "kind": "CommandButton", "command": "DetailsView", "visible": false }
             ]
+          }
+        ]
+      }
+    ]
+  },
+  "sourceCode": {
+    "declaration": "[Form]\npublic class MyEntityDetails extends FormRun\n{\n}",
+    "dataSources": [
+      {
+        "name": "MyEntity",
+        "methods": [
+          {
+            "name": "titleFields",
+            "source": "    /// <summary>\n    /// Title-strip text. Overrides the FormDataSource base method, so the parameter is Common.\n    /// </summary>\n    public display TitleFields titleFields(Common _record)\n    {\n        MyEntity entity = _record as MyEntity;\n        return strFmt('%1 : %2', entity.MyEntityId, entity.Name);\n    }\n"
           }
         ]
       }

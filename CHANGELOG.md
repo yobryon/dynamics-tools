@@ -7,6 +7,58 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 version is below 1.0, the tool and skill surfaces may still shift between minor
 releases.
 
+## [Unreleased]
+
+### Fixed
+
+- **A rejected write can no longer destroy the object.** Microsoft's
+  metadata `Update` truncated a form to an empty root element and then
+  threw; the bridge now snapshots the file before every create or update
+  and restores it when the write throws or leaves a hollow file. The
+  service serializes writes per object, so parallel patches from one
+  agent no longer interleave.
+- **Compile reports facts.** `upToDate` is derived from whether any
+  build-result file was rewritten (devenv prints "succeeded or up-to-date"
+  for every build); `dbSync.performed` says whether the sync step ran; the
+  ordering retry runs the same kind of build as asked and a retry that
+  compiled nothing is reported as not green; a hint explains
+  `EnsureElementInCurrentModuleCompiled` (a model build, which the
+  project build cannot do).
+- **Strict validation covers the label tools.** A wrong key inside
+  `labels[]` is refused with the valid names (it used to write empty
+  labels as success); empty values are refused; `xpp_label_read` and the
+  mutations surface structured errors.
+- **`xpp_patch_by_path` reports keys the node type does not carry** as
+  drift with an explanation (`incomplete: true`) instead of discarding
+  them; `remove` on a scalar is refused with guidance instead of reporting
+  success for nothing; the auto-add to the project is reported.
+- **Form controls accept `dataMethod`, `cacheDataMethod`,
+  `extendedDataType`, `enumType`, `width` and `height` first-class** (get
+  and create are symmetric again); an ActionPaneTab's `text` becomes its
+  caption.
+- **Sub-pattern required values are stamped at write time**
+  (`CustomAndQuickFilters`, `SectionTiles`, `SectionStackedChart` hosts,
+  ...), reported as `patternConformance.subPatternStamps`; previously
+  conformance was clean and the compiler failed with
+  `PatternPropertyRequiredValue`.
+- **Method source and method lists are served from the index only while
+  the file is unchanged**; a file edited behind the index is read live.
+- **`xpp_scm_status` lists pending deletes**; the plural "already has
+  pending changes" checkout outcome is benign success.
+- **`xpp_bp_check` partitions stale changeset entries** (objects that no
+  longer exist) out of the run and reports them once.
+- **Tiles:** `type: Standard` (the plain navigation tile) is authorable;
+  the skill documents the real `RefreshFrequency` values and that
+  user-dependent counts must use `AsFastAsPermissible`.
+- **Skills:** the DetailsMaster example regenerated from a shipped 1.4
+  form (the old one used pattern names that do not exist); the chart
+  example pairs `InMemory` with `setTmpData` and explains
+  `linkPhysicalTableInstance` for TempDB; chart hosts in a stacked-chart
+  section are SizeToContent, not SizeToAvailable; the labelfile skill uses
+  the real tool names and camelCase arguments; the view skill says typed
+  create is query-backed only; the form skill explains `titleFields` as a
+  base-method override.
+
 ## [0.4.3] - 2026-10-08
 
 ### Fixed

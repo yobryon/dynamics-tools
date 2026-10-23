@@ -55,7 +55,8 @@ multiples). The style goes on the chart control inside the part, not on the
 ## Build order (the part must exist before the workspace references it)
 
 1. **Data shape.** One of:
-   - a temp table (`TableType=TempDB` or `InMemory`) with a category field
+   - a temp table (`TableType=InMemory` with `setTmpData`, or `TempDB` with
+     `linkPhysicalTableInstance`; see "Feeding the chart") with a category field
      plus one numeric field per measure and an optional group-by field (the
      most common idiom: `CostFlowTmp` has `Month`, `Name`, `Amount`);
    - an `AxView` or `AxQuery` over existing tables (zero X++ —
@@ -169,7 +170,7 @@ no `addSeries` / `setData` API. Idioms, in order of preference:
 
   private void populate()
   {
-      MyChartTmp tmp;            // TempDB / InMemory table: Category, Amount, (GroupName)
+      MyChartTmp tmp;            // InMemory table: Category, Amount, (GroupName)
       // ... insert rows ...
       MyChartTmp_ds.setTmpData(tmp);      // or MyChartTmp_ds.cursor().setTmpData(tmp)
       MyChartTmp_ds.executeQuery();       // or research() after a refill
@@ -178,6 +179,12 @@ no `addSeries` / `setData` API. Idioms, in order of preference:
 
   When refilling (filter change, period change), `delete_from` the data
   source's own buffer first (`CostInventoryFlowChart.setPeriod`).
+  **Match the binding call to the table type, or the chart is silently
+  empty:** `TableType=InMemory` binds with `setTmpData(buffer)`;
+  `TableType=TempDB` binds with `this.cursor().linkPhysicalTableInstance(buffer)`
+  in the data source's `executeQuery()` before `super()`. The wrong pairing
+  compiles and runs without error and the chart shows "no data" (reported
+  2026-10-23).
   Alternatively override the data source's `executeQuery()`: fill the buffer,
   `setTmpData`, then `super()` (`EcoResProductReleasedStoppedAllChartPart`).
 - **Aggregate in the query.** In the data source `init()`:
@@ -263,11 +270,13 @@ part's own `FiltersAndToolbarInline` header are the only interactions.
   there binds nothing and fails silently.
 - **`targetName` is a menu item.** The form name compiles clean and fails at
   runtime.
-- **Height and width.** The chart control inside the part should be
+- **Height and width.** The chart control INSIDE the part is
   `HeightMode=SizeToAvailable` and `WidthMode=SizeToAvailable` (plus the
   `chart_NxM` style). The host `FormPartControl` in a stacked-chart section
-  can also carry `HeightMode=SizeToAvailable`; the UX guideline in the
-  workspace skill about `WidthMode` on list hosts applies here too.
+  is the opposite: the pattern requires `HeightMode=SizeToContent` and
+  `WidthMode=SizeToContent` on it (SizeToAvailable there fails the build
+  with `PatternPropertyRequiredValue`; the write now stamps the required
+  values). Do not carry the list-host advice over to chart hosts.
 - **Property order varies and empties can be omitted.** MS forms disagree on
   the order of `targetName` / `parmRunMode` / `autoRefreshInterval` and of
   measure properties; the deserializer is order-tolerant for extension

@@ -54,6 +54,16 @@ validation **plus** every container's sub-pattern validation.
 
 Microsoft groups sub-patterns into classes:
 
+### Custom and Quick Filters — required values
+
+`CustomAndQuickFilters` 1.1 (the grid-view filter group in DetailsMaster /
+ListPage forms) requires, on the group: `Style=CustomFilter`,
+`FrameType=None`, `ViewEditMode=Edit`, `ArrangeMethod=HorizontalLeft`,
+`WidthMode=SizeToAvailable`. They are stamped at write time now
+(`patternConformance.subPatternStamps`); before 0.4.4 a clean
+conformance followed by five `PatternPropertyRequiredValue` compile errors
+was the symptom of their absence.
+
 ### Custom Filters (2 variants)
 
 For containers that display QuickFilters and any other modeled
@@ -223,10 +233,13 @@ related forms via menu items (`TileButtonControl` buttons backed by an
 any order -- see `dynamics-xpp:xpp-workspace-charts`.
 
 - MS reference: `SalesOrderProcessingWorkspace`.
-- **Required property VALUES the compiler enforces but `patternConformance`
-  does NOT flag** — set them yourself on the SectionTiles group or compile
-  fails with pattern errors: `ColumnsMode=Fixed`, `ArrangeMethod=HorizontalLeft`,
-  `ExtendedStyle=workspace_tileLayout`.
+- Required property values the compiler enforces on the SectionTiles page:
+  `ColumnsMode=Fixed`, `ArrangeMethod=HorizontalLeft`,
+  `ExtendedStyle=workspace_tileLayout`. They are now **stamped at write time**
+  (`patternConformance.subPatternStamps`); a value you set that the pattern
+  forbids is overridden and reported. Expect the build's
+  `BPUpgradeMetadataTabColumnsMode` warning ("should use ColumnsMode=Fill")
+  on this page: it is noise, the pattern requires Fixed and wins.
 
 ### Section Related Links
 
@@ -284,8 +297,12 @@ Up to two charts in an Operational Workspace section: a `TabPage` with
 `pattern=SectionStackedChart` 1.1, a caption, and one or two
 `FormPartControl` containers (nothing else) each targeting a
 `HubPartChart` part's Display menu item. Placed after the Section Tabbed
-List page and before Section PowerBI / Related Links. Authoring the part,
-the `SysChart` control and its data: `dynamics-xpp:xpp-workspace-charts`.
+List page and before Section PowerBI / Related Links. Required values the
+compiler enforces (stamped at write time): the page `ColumnsMode=Fill`; each
+host `FormPartControl` `HeightMode=SizeToContent` and
+`WidthMode=SizeToContent` (NOT SizeToAvailable, which the list hosts use).
+Authoring the part, the `SysChart` control and its data:
+`dynamics-xpp:xpp-workspace-charts`.
 
 ### Section PowerBI
 

@@ -58,7 +58,10 @@ form's declared `pattern`. Two things happen for you:
   header sizing modes; and the rest — are applied to the controls before
   the write. **Don't hand-set these.** Authoring them is redundant, and
   if you set one to a value the pattern forbids, the pattern wins (it's
-  stamped to the prescribed value and reported back to you).
+  stamped to the prescribed value and reported back to you). This covers
+  the **sub-patterns** controls declare as well (`CustomAndQuickFilters`,
+  `SectionTiles`, `SectionStackedChart`, ...): their fixed required values
+  are stamped and listed under `patternConformance.subPatternStamps`.
 - **What the stamp can't fix is reported** on the response as
   `patternConformance`:
   - `missing` — required controls the engine can't synthesise (e.g. a
@@ -529,6 +532,13 @@ own:
   1. **A display/edit method on the bound datasource's TABLE** — bare method
      name; `this` inside the method IS the record. `dataMethod: "displayAge"`.
   2. **A display method authored on the FORM DATASOURCE itself** — also a bare
+     method name. **If the name matches a `FormDataSource` base method it is an
+     OVERRIDE and must use the base signature.** `titleFields` is the one you
+     will meet (the DetailsMaster title strip binds `dataMethod: "titleFields"`
+     on shipped forms): declare it as `public display TitleFields
+     titleFields(Common _record)` and cast (`_record as MyTable`), not with
+     the table type, or the compiler rejects it with `NoOverrideParameterTypes`.
+     Otherwise, for a name of your own: also a bare
      method name (named as on the datasource), `dataSource` = that datasource.
      Critical signature difference: a datasource display method's `this` is the
      **datasource**, not the record, so F&O injects the record as a

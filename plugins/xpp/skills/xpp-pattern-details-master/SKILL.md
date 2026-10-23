@@ -127,7 +127,7 @@ DetailsTabPage (TabPage)
 Key `Design` properties:
 
 - `Pattern` — `DetailsMaster`
-- `PatternVersion` — `1.1`
+- `PatternVersion` — `1.4` on 10.0.4x (the write-time conformance check squawks when the declared version is not the active one; trust it)
 - `Style` — `DetailsFormMaster` (note: not `DetailsMaster` — the
   style name differs from the pattern name)
 - `Caption`, `DataSource`, `TitleDataSource` — set normally.
@@ -231,13 +231,13 @@ See `dynamics-xpp:xpp-form-subpatterns` for the full reference.
   is the default for new entity-master forms.
 - **Don't add app buttons for foundation actions.** New/Delete/Save/
   Refresh/Attachments/Export are provided by the framework.
-- **`PatternVersion=1.1`.**
+- **`PatternVersion=1.4`** (10.0.4x). The example carries it; the squawk tells you if your platform differs.
 
 ---
 
 ## Supporting files
 
-- `examples/example-domain.json` -- **start here.** Typed `CreateFormRequest` for a minimal DetailsMaster. Substitute the backing table and field set, then pass to `xpp_create_form`.
+- `examples/example-domain.json` -- **start here.** Typed `CreateFormRequest` for a minimal DetailsMaster, shaped from a live read of a shipped DetailsMaster 1.4 form (legal pattern names and the real structure: navigation list, details panel with title group and FastTabs, grid panel with CustomAndQuickFilters). Substitute the backing table and field set, then pass to `xpp_create_form`.
 - `examples/example.xml` -- structural reference for reading existing forms. Don't hand-author from it; use the typed example above.
 
 

@@ -31,7 +31,7 @@ AxView uses **typed domain tools**. Three tools, mirroring CRUD:
 
 | Tool | Purpose |
 |---|---|
-| `xpp_create_view(request)` | Create a new AxView from a typed CreateViewRequest. |
+| `xpp_create_view(request)` | Create a new AxView from a typed CreateViewRequest. **Query-backed only:** the request takes `query` (an AxQuery name). Inline `viewMetadata.dataSources` (which `xpp_get_view` does return for views authored that way in VS) are not authorable through the typed tool; author an AxQuery first and reference it. |
 | `xpp_get_view(name)` | Read a view as its domain shape — view metadata, Query reference, projected/computed fields, indexes, relations, field groups. |
 | `xpp_patch_view(name, patch)` | Apply a partial update. Collections (Fields / Indexes / Relations / FieldGroups) replace the whole list when non-null — read with `xpp_get_view`, mutate, patch back. |
 
