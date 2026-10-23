@@ -250,7 +250,9 @@ In order of preference, all from shipped code:
    right after the journal is written; `LedgerJournalCheckPostCustomerPayment`
    has a `sendBusinessEvents()` that loops the journal lines.
 3. **A Chain-of-Command extension of that method** when the class is not
-   yours: `next postJournal(); MyEvent::newFromX(x).send();`.
+   yours: `next endPost(); MyEvent::newFromX(custInvoiceJour).send();`
+   (`endPost` is where `SalesInvoiceJournalPostBase` raises its own event;
+   the buffer is the class's protected member, readable from an extension).
 4. **An event handler** on a framework table or delegate:
    `[DataEventHandler(tableStr(WorkflowWorkItemTable), DataEventType::Inserted)]`
    is how Leave raises `LeaveRequestWorkItemAssignedBusinessEvent`: filter to

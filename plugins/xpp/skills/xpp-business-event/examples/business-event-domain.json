@@ -28,19 +28,19 @@
         },
         {
           "name": "parmInvoiceId",
-          "source": "    [DataMember('InvoiceId'), BusinessEventsDataMember(\"@SYS12128\")]\n    public CustInvoiceId parmInvoiceId(CustInvoiceId _invoiceId = invoiceId)\n    {\n        invoiceId = _invoiceId;\n        return invoiceId;\n    }\n"
+          "source": "    [DataMember('InvoiceId'), BusinessEventsDataMember(\"@AccountsReceivable:BusinessEventInvoiceId\")]\n    public CustInvoiceId parmInvoiceId(CustInvoiceId _invoiceId = invoiceId)\n    {\n        invoiceId = _invoiceId;\n        return invoiceId;\n    }\n"
         },
         {
           "name": "parmSalesOrderId",
-          "source": "    [DataMember('SalesOrderId'), BusinessEventsDataMember(\"@SYS9694\")]\n    public SalesIdBase parmSalesOrderId(SalesIdBase _salesId = salesId)\n    {\n        salesId = _salesId;\n        return salesId;\n    }\n"
+          "source": "    [DataMember('SalesOrderId'), BusinessEventsDataMember(\"@AccountsReceivable:SalesOrderId\")]\n    public SalesIdBase parmSalesOrderId(SalesIdBase _salesId = salesId)\n    {\n        salesId = _salesId;\n        return salesId;\n    }\n"
         },
         {
           "name": "parmInvoiceDate",
-          "source": "    [DataMember('InvoiceDate'), BusinessEventsDataMember(\"@SYS24000\")]\n    public TransDate parmInvoiceDate(TransDate _invoiceDate = invoiceDate)\n    {\n        invoiceDate = _invoiceDate;\n        return invoiceDate;\n    }\n"
+          "source": "    [DataMember('InvoiceDate'), BusinessEventsDataMember(\"@AccountsReceivable:BusinessEventInvoiceDate\")]\n    public TransDate parmInvoiceDate(TransDate _invoiceDate = invoiceDate)\n    {\n        invoiceDate = _invoiceDate;\n        return invoiceDate;\n    }\n"
         },
         {
           "name": "parmInvoiceAmount",
-          "source": "    [DataMember('InvoiceAmountInAccountingCurrency'), BusinessEventsDataMember(\"@SYS8042\")]\n    public AmountMST parmInvoiceAmount(AmountMST _invoiceAmount = invoiceAmount)\n    {\n        invoiceAmount = _invoiceAmount;\n        return invoiceAmount;\n    }\n"
+          "source": "    [DataMember('InvoiceAmountInAccountingCurrency'), BusinessEventsDataMember(\"@AccountsReceivable:InvoiceAmountInAccountingCurrency\")]\n    public AmountMST parmInvoiceAmount(AmountMST _invoiceAmount = invoiceAmount)\n    {\n        invoiceAmount = _invoiceAmount;\n        return invoiceAmount;\n    }\n"
         },
         {
           "name": "parmInvoiceType",
@@ -48,7 +48,7 @@
         },
         {
           "name": "parmLegalEntity",
-          "source": "    [DataMember('LegalEntity'), BusinessEventsDataMember(\"@SYS315135\")]\n    public LegalEntityDataAreaId parmLegalEntity(LegalEntityDataAreaId _legalEntity = legalEntity)\n    {\n        legalEntity = _legalEntity;\n        return legalEntity;\n    }\n"
+          "source": "    [DataMember('LegalEntity'), BusinessEventsDataMember(\"@AccountsReceivable:LegalEntity\")]\n    public LegalEntityDataAreaId parmLegalEntity(LegalEntityDataAreaId _legalEntity = legalEntity)\n    {\n        legalEntity = _legalEntity;\n        return legalEntity;\n    }\n"
         }
       ]
     }
@@ -82,14 +82,14 @@
     }
   },
   "raiseSite": {
-    "_doc": "Chain-of-Command on the posting class, so the event fires after the invoice journal is written and inside the posting transaction. Create via xpp_create_class; see dynamics-xpp:xpp-extension.",
+    "_doc": "Chain-of-Command on the posting class: endPost() is the method where the shipped SalesInvoicePostedBusinessEvent is raised, after the journal is written and inside the posting transaction; the journal buffer is the class's protected member custInvoiceJour, which an extension may read. Create via xpp_create_class; see dynamics-xpp:xpp-extension.",
     "name": "MySalesInvoiceJournalPostBase_Extension",
     "sourceCode": {
       "declaration": "[ExtensionOf(classStr(SalesInvoiceJournalPostBase))]\nfinal class MySalesInvoiceJournalPostBase_Extension\n{\n}",
       "methods": [
         {
-          "name": "postJournalPost",
-          "source": "    protected void postJournalPost()\n    {\n        next postJournalPost();\n\n        CustInvoiceJour custInvoiceJour = this.parmCustInvoiceJour();\n        if (custInvoiceJour)\n        {\n            MyInvoicePostedBusinessEvent::newFromCustInvoiceJour(custInvoiceJour).send();\n        }\n    }\n"
+          "name": "endPost",
+          "source": "    protected void endPost()\n    {\n        next endPost();\n\n        if (custInvoiceJour)\n        {\n            MyInvoicePostedBusinessEvent::newFromCustInvoiceJour(custInvoiceJour).send();\n        }\n    }\n"
         }
       ]
     }
