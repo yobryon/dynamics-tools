@@ -195,6 +195,16 @@ namespace XppMetadataBridge.Metadata.Domain
             // reported above, so order doesn't matter for the report.
             foreach (var (v, control) in toStamp) StampOne(v, control);
 
+            // The form-pattern analysis above does not evaluate the required
+            // property VALUES of the sub-patterns controls declare
+            // (CustomAndQuickFilters' five, SectionTiles ColumnsMode=Fixed,
+            // SectionStackedChart children SizeToContent): ok:true, then
+            // PatternPropertyRequiredValue at compile (reported twice
+            // 2026-10-20/21). Run the analyzer per declared sub-pattern and
+            // stamp those Equals violations the same way.
+            var subStamped = new JArray();
+            StampSubPatterns(design, authorKeys, overrides, mismatches, subStamped);
+
             bool ok = missing.Count == 0 && mismatches.Count == 0;
             var jo = new JObject
             {
@@ -202,6 +212,7 @@ namespace XppMetadataBridge.Metadata.Domain
                 ["version"] = patternVersion,
                 ["ok"] = ok,
             };
+            if (subStamped.Count > 0) jo["subPatternStamps"] = subStamped;
 
             // Is the DECLARED version still one the platform considers active?
             // GetPatternByName happily resolves a retired version, so without
@@ -234,6 +245,105 @@ namespace XppMetadataBridge.Metadata.Domain
         }
 
         // ---- stamping (MS Extensions.FixPatternResultPropertyViolations) ----
+        /// <summary>Analyze every control that declares a resolvable sub-pattern
+        /// against that sub-pattern and stamp its Equals violations (the fixed
+        /// required values the compiler enforces). Author-set values that the
+        /// pattern overrides are reported in <paramref name="overrides"/>;
+        /// non-Equals constraints go to <paramref name="mismatches"/>.</summary>
+        private static void StampSubPatterns(object design, Dictionary<string, HashSet<string>> authorKeys, JArray overrides, JArray mismatches, JArray stamped)
+        {
+            void Walk(object ctrl, string path)
+            {
+                try
+                {
+                    if (ctrl is IPatternable ip && !string.IsNullOrWhiteSpace(ip.Pattern))
+                    {
+                        var sp = Factory.GetPatternByName(ip.Pattern, ip.PatternVersion, false);
+                        if (sp != null)
+                        {
+                            var r = new PatternAnalyzer().TestPattern(ip, sp, null);
+                            if (r != null) VisitSub(r, ip.Pattern, path);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[bridge] sub-pattern conformance skipped at {path}: {ex.Message}");
+                }
+                if (ctrl.GetType().GetProperty("Controls")?.GetValue(ctrl) is System.Collections.IEnumerable kids)
+                    foreach (var k in kids)
+                    {
+                        var nm = ControlName(k) ?? "";
+                        Walk(k, string.IsNullOrEmpty(path) ? nm : $"{path} > {nm}");
+                    }
+            }
+
+            void VisitSub(PatternResult r, string subPattern, string path)
+            {
+                var control = r.Control;
+                var controlName = ControlName(control);
+                if (r.Violations != null && control != null)
+                {
+                    foreach (var v in r.Violations)
+                    {
+                        if (v.Op == PropertyViolation.Operator.Equals)
+                        {
+                            var authored = controlName != null && authorKeys.TryGetValue(controlName, out var keys)
+                                           && keys.Contains(MetaclassJson.ToCamel(v.PropertyName));
+                            StampOne(v, control);
+                            stamped.Add(new JObject
+                            {
+                                ["subPattern"] = subPattern,
+                                ["control"] = controlName,
+                                ["property"] = MetaclassJson.ToCamel(v.PropertyName),
+                                ["value"] = v.PatternValue,
+                            });
+                            if (authored)
+                                overrides.Add(new JObject
+                                {
+                                    ["path"] = path,
+                                    ["control"] = controlName,
+                                    ["property"] = MetaclassJson.ToCamel(v.PropertyName),
+                                    ["requested"] = v.ActualValue,
+                                    ["patternValue"] = v.PatternValue,
+                                    ["subPattern"] = subPattern,
+                                });
+                        }
+                        else
+                        {
+                            mismatches.Add(new JObject
+                            {
+                                ["path"] = path,
+                                ["control"] = controlName,
+                                ["property"] = MetaclassJson.ToCamel(v.PropertyName),
+                                ["actual"] = v.ActualValue,
+                                ["patternValue"] = v.PatternValue,
+                                ["op"] = v.Op.ToString(),
+                                ["subPattern"] = subPattern,
+                            });
+                        }
+                    }
+                }
+                var node = r.Node;
+                if (node?.SubNodes == null) return;
+                foreach (var sn in node.SubNodes)
+                {
+                    List<PatternResult>? list = null;
+                    r.ChildResults?.TryGetValue(sn, out list);
+                    if (list == null) continue;
+                    foreach (var c in list)
+                    {
+                        var nm = ControlName(c.Control) ?? "";
+                        VisitSub(c, subPattern, string.IsNullOrEmpty(path) ? nm : $"{path} > {nm}");
+                    }
+                }
+            }
+
+            if (design.GetType().GetProperty("Controls")?.GetValue(design) is System.Collections.IEnumerable top)
+                foreach (var c in top)
+                    Walk(c, ControlName(c) ?? "");
+        }
+
         private static void StampOne(PropertyViolation v, object control)
         {
             try

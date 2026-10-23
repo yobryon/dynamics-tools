@@ -16,7 +16,9 @@ namespace Xpp.Service.Domain.Tiles;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TileType
 {
-    [Description("Static tile that opens the linked target on click.")]
+    [Description("The default: a plain navigation tile that opens MenuItemName on click, no count, no URL. Shipped workspace tiles with no <Type> element are Standard. Set it explicitly to reset a tile that was made Link/Count/KPI.")]
+    Standard,
+    [Description("A tile that opens an external URL (the URL property), not a menu item. NOT the plain navigation tile; that is Standard.")]
     Link,
     [Description("Renders the count of matching rows from Query.")]
     Count,

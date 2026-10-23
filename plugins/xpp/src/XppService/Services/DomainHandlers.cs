@@ -209,6 +209,15 @@ public sealed partial class PingGrpcService
             VersionNote = o["versionNote"]?.GetValue<string>() ?? "",
         };
 
+        if (o["subPatternStamps"] is JsonArray stamps)
+            foreach (var st in stamps.OfType<JsonObject>())
+                pc.SubPatternStamps.Add(new PatternStamp
+                {
+                    SubPattern = st["subPattern"]?.GetValue<string>() ?? "",
+                    Control = st["control"]?.GetValue<string>() ?? "",
+                    Property = st["property"]?.GetValue<string>() ?? "",
+                    Value = st["value"]?.GetValue<string>() ?? "",
+                });
         if (o["activeVersions"] is JsonArray activeVersions)
             foreach (var av in activeVersions)
                 if (av?.GetValue<string>() is { Length: > 0 } v) pc.ActiveVersions.Add(v);
@@ -354,6 +363,17 @@ public sealed partial class PingGrpcService
         }
 
         DomainSkeleton.SpliceResult splice;
+        // `remove` on a scalar property cannot reset it: the mapper overlays the
+        // remaining branch on the current object and the old value stays. A
+        // tile's /type removal "succeeded" and changed nothing (2026-10-21).
+        if (string.Equals(request.Op, "remove", StringComparison.OrdinalIgnoreCase))
+        {
+            var target = DomainSkeleton.Resolve(root, request.AtPath);
+            if (target is JsonValue)
+                throw new RpcException(new Status(StatusCode.InvalidArgument,
+                    $"'{request.AtPath}' is a scalar property; remove cannot reset it (the object keeps its current value). " +
+                    "Set it explicitly to the value you want (for an enum, its default member, e.g. type: Standard)."));
+        }
         try { splice = DomainSkeleton.ApplyOp(root, request.AtPath, request.Op, value); }
         catch (DomainSkeleton.SpliceException ex)
         { throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message)); }

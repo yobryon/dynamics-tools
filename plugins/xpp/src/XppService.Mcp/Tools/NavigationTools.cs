@@ -235,7 +235,13 @@ public sealed class NavigationTools
     private async Task<(bool ChangesetUpdated, string[] Warnings)> RecordPostWriteAsync(string axType, string name, CancellationToken ct)
     {
         var warnings = new List<string>();
-        try { await _project.AddToRnprojAsync(axType, name, ct).ConfigureAwait(false); }
+        try
+        {
+            // Say so when the write pulled an object into the project: the user
+            // found such an add in source control before the agent did.
+            if (await _project.AddToRnprojAsync(axType, name, ct).ConfigureAwait(false))
+                warnings.Add($"project: {axType} '{name}' was not in the project and has been added to it (the write requires it).");
+        }
         catch (Exception ex) { warnings.Add($"rnrproj add failed: {ex.Message}"); }
         var changesetUpdated = false;
         try { await _project.UpsertChangesetAsync(axType, name, createdHere: false, ct).ConfigureAwait(false); changesetUpdated = true; }

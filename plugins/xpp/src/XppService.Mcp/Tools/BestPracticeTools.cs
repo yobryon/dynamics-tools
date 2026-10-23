@@ -144,6 +144,32 @@ public sealed class BestPracticeTools
             });
         }
 
+        // Changeset entries whose object no longer exists (deleted or renamed in
+        // a later session) make xppbp emit one ItemNotFound per entry -- 38 of
+        // them read as "I broke something" (2026-10-20). Partition them out and
+        // say so once.
+        var staleEntries = new List<string>();
+        if (scopeNormalized == "changeset")
+        {
+            var live = new List<BpElementFilter>();
+            foreach (var e in elements)
+            {
+                var exists = false;
+                try
+                {
+                    using var find = _conn.Client.FindObject(new FindObjectRequest { Name = e.Name, AxType = e.AxType }, cancellationToken: ct);
+                    while (await find.ResponseStream.MoveNext(ct).ConfigureAwait(false))
+                    {
+                        var r = find.ResponseStream.Current.Ref;
+                        if (string.Equals(r.Name, e.Name, StringComparison.OrdinalIgnoreCase) && string.Equals(r.AxType, e.AxType, StringComparison.OrdinalIgnoreCase)) { exists = true; break; }
+                    }
+                }
+                catch { exists = true; }
+                if (exists) live.Add(e); else staleEntries.Add($"{e.AxType} {e.Name}");
+            }
+            elements = live;
+        }
+
         var req = new BpCheckRequest
         {
             Module = resolved.Module,
@@ -186,12 +212,13 @@ public sealed class BestPracticeTools
 
         return JsonSerializer.Serialize(ShapeResponse(
             scopeNormalized, resolved, elements.Count, diagnostics,
-            verbosityNormalized == "full" || drilling, suppress));
+            verbosityNormalized == "full" || drilling, suppress,
+            staleEntries.Count > 0 ? staleEntries.ToArray() : null));
     }
 
     private static object ShapeResponse(
         string scope, ResolvedConfig resolved, int elementsChecked,
-        List<BpDiagnostic> diagnostics, bool fullDetail, HashSet<string> suppress)
+        List<BpDiagnostic> diagnostics, bool fullDetail, HashSet<string> suppress, string[]? staleChangesetEntries = null)
     {
         var errors = new List<object>();
         var warnings = new List<BpDiagnostic>();
@@ -223,6 +250,10 @@ public sealed class BestPracticeTools
             module = resolved.Module,
             model = resolved.Model,
             elementsChecked,
+            staleChangesetEntries,
+            staleChangesetHint = staleChangesetEntries != null
+                ? $"{staleChangesetEntries.Length} changeset entr{(staleChangesetEntries.Length == 1 ? "y" : "ies")} name objects that no longer exist; they were skipped (xppbp would report ItemNotFound for each). They are tracking state from an earlier session: clear with xpp_changeset_clear only if the user agrees, or use scope=explicit."
+                : null,
             errors,
             warnings = fullDetail
                 ? (object)new { total = warnings.Count, diagnostics = warnings.Select(ProjectDiag).ToArray() }

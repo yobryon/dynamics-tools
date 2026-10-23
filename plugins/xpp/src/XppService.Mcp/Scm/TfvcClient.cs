@@ -112,7 +112,7 @@ public sealed class TfvcClient
             // conflicting pending change (TF203069): benign here — the file is
             // already tracked-and-pending, the write goes through. Suppressing
             // this keeps sideEffectWarnings high-signal (SCM "just works").
-            || lower.Contains("already has a pending change") || lower.Contains("tf14050")
+            || lower.Contains("already has a pending change") || lower.Contains("already has pending changes") || lower.Contains("tf14050")
             || lower.Contains("tf203069") || lower.Contains("conflicts with one or more other pending changes"))
         {
             return new TfvcOpResult(Success: true, Kind: "already_pending", Detail: null);

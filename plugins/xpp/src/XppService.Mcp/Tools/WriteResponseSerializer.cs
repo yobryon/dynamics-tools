@@ -97,6 +97,8 @@ internal static class WriteResponseSerializer
             ["ok"] = pc.Ok,
         };
         if (!string.IsNullOrEmpty(pc.Note)) obj["note"] = pc.Note;
+        if (pc.SubPatternStamps.Count > 0)
+            obj["subPatternStamps"] = pc.SubPatternStamps.Select(s => new { subPattern = s.SubPattern, control = s.Control, property = s.Property, value = s.Value }).ToArray();
         if (!pc.VersionActive)
         {
             obj["versionActive"] = false;

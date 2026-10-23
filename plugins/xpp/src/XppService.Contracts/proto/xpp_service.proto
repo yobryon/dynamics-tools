@@ -450,7 +450,18 @@ message WriteObjectResponse {
 }
 
 // Result of running MS's form-pattern engine over an AxForm write.
+message PatternStamp {
+  string sub_pattern = 1;
+  string control = 2;
+  string property = 3;
+  string value = 4;
+}
+
 message PatternConformance {
+  // Required property values stamped from controls' declared SUB-patterns
+  // (SectionTiles, CustomAndQuickFilters, ...), the ones the compiler
+  // enforces with PatternPropertyRequiredValue.
+  repeated PatternStamp sub_pattern_stamps = 20;
   string pattern = 1;
   string version = 2;
   // True iff there are no `missing` slots and no residual `mismatches`
